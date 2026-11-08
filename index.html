@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F6E63">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+<title>Tutor de Xadrez</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="copyright" content="© 2026 Nuno Freitas. Todos os direitos reservados.">
+<meta name="author" content="Nuno Freitas">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<!-- Tutor de Xadrez — © 2026 Nuno Freitas. Todos os direitos reservados. Software proprietário. Ref. TX-NF-2026-3FCA48 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Spectral+SC:wght@600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: cabeçalho fino · tabuleiro dominante à esquerda + coluna dos agentes à direita; empilha em telemóvel */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --ink:#16302C; --muted:#5A6F6B; --line:#D3DEDB;
+  --accent:#0F6E63; --accent-ink:#FFFFFF; --hint:#C98A16;
+  --sq-lt:#DCE7E2; --sq-dk:#5E8C84; --sq-sel:#F2C14E; --sq-last:rgba(242,193,78,.45);
+  --good:#1F8A4C; --bad:#C2412D; --alt:#2F6FB3;
+  --ag-mestre:#0F6E63; --ag-arbitro:#4B5563; --ag-analista:#7A4CB0; --ag-faisca:#C2412D; --ag-muralha:#3A5A8C;
+  --f-display:"Spectral SC", Georgia, serif;
+  --f-body:"Atkinson Hyperlegible", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1A19; --surface:#152523; --ink:#E3EEEB; --muted:#93A9A4; --line:#25403C;
+  --accent:#3FB3A2; --accent-ink:#06201C; --hint:#E8B04A;
+  --sq-lt:#A9C2BA; --sq-dk:#3F6B64; --sq-sel:#E8B04A; --sq-last:rgba(232,176,74,.45);
+  --good:#4CC17E; --bad:#F07560; --alt:#6FA8E8; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E1A19; --surface:#152523; --ink:#E3EEEB; --muted:#93A9A4; --line:#25403C;
+  --accent:#3FB3A2; --accent-ink:#06201C; --hint:#E8B04A;
+  --sq-lt:#A9C2BA; --sq-dk:#3F6B64; --sq-sel:#E8B04A; --sq-last:rgba(232,176,74,.45);
+  --good:#4CC17E; --bad:#F07560; --alt:#6FA8E8; color-scheme:dark }
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 24px}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--hint);outline-offset:2px}
+header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand svg{width:34px;height:34px;flex:none}
+.brand h1{font-family:var(--f-display);font-size:1.35rem;margin:0;letter-spacing:.02em}
+.ver{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;border-radius:8px;padding:6px 10px;color:var(--muted)}
+nav button[aria-current="true"]{color:var(--ink);border-color:var(--line);background:var(--surface)}
+.who{font-size:.85rem;color:var(--muted)} .who b{color:var(--ink)}
+.toggle{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:.85rem}
+main{max-width:1080px;margin:0 auto}
+.warn{background:var(--bad);color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+/* jogo */
+.play{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.play{grid-template-columns:minmax(0,1fr)}}
+.boardwrap{position:relative;width:100%;max-width:560px;aspect-ratio:1}
+#board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:100%;height:100%;border-radius:6px;overflow:hidden;box-shadow:0 2px 0 var(--line),0 8px 24px rgba(0,0,0,.12)}
+.sq{position:relative;border:0;padding:0;margin:0;display:grid;place-items:center;touch-action:manipulation}
+.sq.lt{background:var(--sq-lt)} .sq.dk{background:var(--sq-dk)}
+.sq.last{box-shadow:inset 0 0 0 100px var(--sq-last)}
+.sq.sel{box-shadow:inset 0 0 0 100px var(--sq-sel)}
+.sq.mark{box-shadow:inset 0 0 0 4px var(--hint)}
+.sq.chk{background:radial-gradient(circle,var(--bad) 0 35%,transparent 75%),var(--sq-dk)}
+.sq.dot::after{content:"";width:28%;height:28%;border-radius:50%;background:rgba(15,40,36,.35)}
+.sq.cap::after{content:"";position:absolute;inset:4%;border-radius:50%;border:5px solid rgba(15,40,36,.35)}
+.sq svg{width:92%;height:92%;pointer-events:none}
+.sq .rk,.sq .fl{position:absolute;font-family:var(--f-mono);font-size:.62rem;opacity:.75;pointer-events:none}
+.sq .rk{top:2px;left:3px} .sq .fl{bottom:1px;right:3px}
+.sq.lt .rk,.sq.lt .fl{color:var(--sq-dk)} .sq.dk .rk,.sq.dk .fl{color:var(--sq-lt)}
+#arrows{position:absolute;inset:0;pointer-events:none}
+.promo{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);border-radius:6px}
+.promo div{display:flex;gap:8px;background:var(--surface);padding:12px;border-radius:10px}
+.promo button{width:64px;height:64px;border:1px solid var(--line);border-radius:8px;background:var(--sq-lt)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.status{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.status .turn{font-weight:700}
+.pill{font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
+.ladder{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ladder button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 6px;font-size:.85rem;text-align:left}
+.ladder button small{display:block;color:var(--muted);font-family:var(--f-mono);font-size:.7rem}
+.ladder button.used{border-color:var(--hint)}
+.ladder.locked button{opacity:.5}
+#feed{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:4px}
+.msg{display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-family:var(--f-display);font-size:1rem}
+.bub{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:8px 12px}
+.bub .nm{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block}
+.bub .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.san{font-family:var(--f-mono);font-size:.92em}
+.moves{font-family:var(--f-mono);font-size:.88rem;display:grid;grid-template-columns:3ch 1fr 1fr;gap:2px 8px;max-height:180px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px}
+.moves button{background:none;border:0;text-align:left;padding:1px 4px;border-radius:4px}
+.moves button.on{background:var(--sq-sel);color:#16302C}
+.moves span{color:var(--muted)}
+h2{font-family:var(--f-display);font-size:1.15rem;margin:0 0 8px;text-wrap:balance}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+/* configuração */
+.setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label,.lbl{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px}
+.seg button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface)}
+.elo{font-family:var(--f-mono);font-size:1.4rem}
+.note{font-size:.85rem;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tw{overflow-x:auto}
+.rules{columns:2 300px;gap:24px} .rules p{break-inside:avoid;margin:0 0 12px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden} .bar i{display:block;height:100%;background:var(--accent);width:0}
+footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="var(--accent)"/><path d="M13 31h15l-1.5-4.5c2-3 2.5-7 .5-11-1.6-3.2-5-5-8.5-5l-1 2.5-3 1.5-3 5 2 2.2 4-1.7c.6 1.3-.4 3.5-2.2 5.3L13 31z" fill="var(--accent-ink)"/></svg>
+    <div><h1>Tutor de Xadrez</h1><span class="ver" id="ver"></span></div>
+  </div>
+  <span class="who" id="who"></span>
+  <nav aria-label="Secções">
+    <button id="nav-jogar" aria-current="true">Jogar</button>
+    <button id="nav-evolucao">Evolução</button>
+    <button id="nav-regras">Regras</button>
+  </nav>
+  <button class="toggle" id="voz" aria-pressed="true">Voz: ligada</button>
+</header>
+
+<main>
+  <div id="warn" class="warn" hidden></div>
+
+  <section id="v-setup" class="setup">
+    <div class="card">
+      <h2>Quem joga?</h2>
+      <div class="field"><span class="lbl">Jogador neste aparelho</span><div class="seg" id="s-user"></div></div>
+      <div class="field"><span class="lbl">Modo</span>
+        <div class="seg" id="s-mode">
+          <button data-v="bot">Contra o Oponente virtual</button>
+          <button data-v="local">Pai e filha no mesmo aparelho</button>
+        </div></div>
+      <div id="s-local" hidden>
+        <div class="field"><label for="s-w">Brancas</label><select id="s-w"></select></div>
+        <div class="field"><label for="s-b">Pretas</label><select id="s-b"></select></div>
+        <label class="note"><input type="checkbox" id="s-rot" checked> Rodar o tabuleiro a cada lance</label><br>
+        <label class="note"><input type="checkbox" id="s-touch" checked> Peça tocada, peça jogada (FIDE 4.3)</label>
+        <p class="note">Entre humanos o Mestre fica bloqueado. Só o Juiz Rocha ajuda, e apenas com regras.</p>
+      </div>
+      <p class="note">Brevemente: partidas à distância (Lichess) e por correspondência (link por email, SMS ou WhatsApp).</p>
+    </div>
+    <div class="card" id="s-bot">
+      <h2>Oponente virtual</h2>
+      <div class="field"><span class="lbl">Estilo</span>
+        <div class="seg" id="s-style">
+          <button data-v="faisca">Faísca · dinâmico</button>
+          <button data-v="muralha">Muralha · posicional</button>
+        </div></div>
+      <div class="field"><label for="s-elo">Força</label>
+        <div class="elo" id="s-elo-v"></div>
+        <input type="range" id="s-elo" min="400" max="2500" step="25">
+        <label class="note"><input type="checkbox" id="s-auto" checked> Automático: ao teu nível (±50)</label></div>
+      <div class="field"><span class="lbl">As tuas peças</span>
+        <div class="seg" id="s-color">
+          <button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Ao acaso</button>
+        </div></div>
+    </div>
+    <div><button class="btn pri" id="start">Começar partida</button></div>
+  </section>
+
+  <section id="v-play" class="play" hidden>
+    <div>
+      <div class="boardwrap"><div id="board" role="grid" aria-label="Tabuleiro"></div><svg id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg><div class="promo" id="promo" hidden></div></div>
+      <div class="controls">
+        <button class="btn" id="b-first" aria-label="Início">⏮</button>
+        <button class="btn" id="b-prev" aria-label="Lance anterior">◀</button>
+        <button class="btn" id="b-next" aria-label="Lance seguinte">▶</button>
+        <button class="btn" id="b-last" aria-label="Posição atual">⏭</button>
+        <button class="btn" id="b-undo">Desfazer</button>
+        <button class="btn" id="b-flip">Virar</button>
+        <button class="btn" id="b-draw">Propor empate</button>
+        <button class="btn" id="b-resign">Desistir</button>
+        <button class="btn" id="b-new">Nova partida</button>
+      </div>
+    </div>
+    <div class="side">
+      <div class="status"><span class="turn" id="turn"></span><span class="pill" id="match"></span></div>
+      <div>
+        <span class="lbl">Mestre Gaspar · ajuda em degraus</span>
+        <div class="ladder" id="ladder">
+          <button data-l="1"><small>1</small>Pergunta</button>
+          <button data-l="2"><small>2</small>Onde olhar</button>
+          <button data-l="3"><small>3</small>Ideia</button>
+          <button data-l="4"><small>4</small>Antevisão</button>
+          <button data-l="5"><small>5</small>Comparar</button>
+          <button data-l="6"><small>6</small>O lance</button>
+        </div>
+      </div>
+      <div id="feed" aria-live="polite"></div>
+      <div id="ana" hidden><span class="lbl">Lupa a analisar</span><div class="bar"><i id="ana-bar"></i></div></div>
+      <div><span class="lbl">Lances</span><div class="moves" id="moves"></div></div>
+    </div>
+  </section>
+
+  <section id="v-evolucao" hidden></section>
+
+  <section id="v-regras" hidden>
+    <div class="card"><h2>Regras essenciais</h2><div class="rules">
+      <p><b>Objetivo.</b> Dar xeque-mate: o rei adversário está atacado e não tem forma de escapar.</p>
+      <p><b>Rei (R).</b> Uma casa em qualquer direção. Nunca pode ficar em xeque.</p>
+      <p><b>Dama (D).</b> Em linha reta ou na diagonal, quantas casas quiser, sem saltar peças.</p>
+      <p><b>Torre (T).</b> Em linha reta, na horizontal ou vertical.</p>
+      <p><b>Bispo (B).</b> Na diagonal. Fica sempre na cor de casa em que começou.</p>
+      <p><b>Cavalo (C).</b> Em «L»: duas casas numa direção e uma ao lado. É a única peça que salta.</p>
+      <p><b>Peão.</b> Avança uma casa (duas no primeiro lance) e captura na diagonal. Nunca recua.</p>
+      <p><b>Promoção.</b> O peão que chega à última fila transforma-se em dama, torre, bispo ou cavalo.</p>
+      <p><b>Roque.</b> Rei anda duas casas para o lado da torre, que salta para o outro lado dele. Só se nenhum dos dois se mexeu, não há peças no meio, e o rei não está, não passa nem fica em xeque.</p>
+      <p><b>En passant.</b> Se um peão avança duas casas e fica ao lado de um peão adversário, este pode capturá-lo como se tivesse andado só uma, mas apenas no lance logo a seguir.</p>
+      <p><b>Empates.</b> Rei afogado (sem lances e sem xeque), repetição da mesma posição três vezes, 50 lances sem captura nem movimento de peão, ou material insuficiente para dar mate.</p>
+      <p><b>Valor das peças.</b> Peão 1 · Cavalo 3 · Bispo 3 · Torre 5 · Dama 9. O rei não tem preço.</p>
+      <p><b>Notação.</b> As casas vão de a1 a h8. R rei, D dama, T torre, B bispo, C cavalo; o peão não tem letra. «x» é captura, «+» xeque, «#» mate, O-O roque pequeno.</p>
+    </div></div>
+  </section>
+</main>
+
+<footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
+<div id="sprite" hidden></div>
+<script type="module" src="app.js"></script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});</script>
+</body>
+</html>

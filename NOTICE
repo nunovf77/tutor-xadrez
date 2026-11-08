@@ -1,0 +1,10 @@
+Tutor de Xadrez — componentes de terceiros (mantêm as suas licenças)
+
+1. Stockfish 19 (stockfish.js, build "lite single-threaded") — GPL-3.0
+   Autores: equipa Stockfish; port WASM por Nathan Rugg. Ficheiros: stockfish-19-lite-single.js / .wasm
+   Executado como programa separado (Web Worker) que comunica por UCI. Texto da licença: STOCKFISH-COPYING.txt
+   Código-fonte: https://github.com/nmrugg/stockfish.js · https://github.com/official-stockfish/Stockfish
+2. chess.js 1.4.0 — BSD-2-Clause — © Jeff Hlywa. https://github.com/jhlywa/chess.js
+3. Peças (pieces.svg) — CC BY-SA 3.0 — Cburnett e Rfc1394 (Wikimedia Commons), adaptadas por shaack (cm-chessboard).
+   https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces/Standard · https://creativecommons.org/licenses/by-sa/3.0/
+4. Tipos de letra Atkinson Hyperlegible, Spectral SC, JetBrains Mono — SIL Open Font License (Google Fonts).
