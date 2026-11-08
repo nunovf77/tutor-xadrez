@@ -147,6 +147,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .opt.right{border-color:var(--good);box-shadow:inset 0 0 0 2px var(--good)} .opt.wrong{border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
 .fb{border-radius:10px;padding:12px 14px} .fb.good{background:color-mix(in srgb,var(--good) 18%,var(--surface))} .fb.bad{background:color-mix(in srgb,var(--bad) 16%,var(--surface))}
 .big{font-size:2.2rem;color:var(--hint);margin:6px 0;letter-spacing:.1em}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast .btn{color:var(--ink)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -184,7 +186,8 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div id="s-dist" hidden>
         <div class="field"><label for="s-opp">Adversário</label><select id="s-opp"></select></div>
         <div class="field"><span class="lbl">As minhas peças</span><div class="seg" id="s-dcol"><button data-v="w">Brancas</button><button data-v="b">Pretas</button></div></div>
-        <p class="note">Jogas o teu lance e a app prepara um link para enviares por WhatsApp, SMS ou email. O adversário abre-o na app dele (PC, tablet ou telemóvel), joga e devolve. O Juiz verifica as regras nos dois aparelhos e rejeita links adulterados.</p>
+        <p class="note">Com internet, os lances chegam sozinhos ao outro aparelho. Na primeira partida envias um link uma vez (WhatsApp, SMS ou email) para ligar os dois aparelhos. Sem internet, o lance fica guardado e segue quando houver ligação, ou envias por link. O Juiz verifica as regras nos dois aparelhos.</p>
+        <p class="note" id="s-sync"></p>
         <div class="seg" id="s-dlist"></div>
       </div>
       <div id="s-local" hidden>
@@ -272,6 +275,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 </main>
 
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
+<div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden><!--
 
 LICENSE
@@ -4013,7 +4017,7 @@ const CURSO = [
 
 
 
-const VERSAO = '0.4.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.5.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4171,6 +4175,7 @@ function renderSetup() {
   const so = $('#s-opp'); so.innerHTML = ''; if (S.opp === S.user) S.opp = Object.keys(players).find(k => k !== S.user);
   Object.entries(players).filter(([k]) => k !== S.user).forEach(([k, p]) => { const o = el('option', null, p.nome); o.value = k; if (S.opp === k) o.selected = true; so.append(o); });
   so.onchange = () => { S.opp = so.value; save(); };
+  renderSync();
   const dl = $('#s-dlist'); dl.innerHTML = '';
   Object.values(store.get('corr', {})).filter(c => !c.done).forEach(c => { const n = new Chess(); try { n.loadPgn(c.pgn); } catch { return; } const b = el('button', 'btn', `Retomar: ${players[c.w]?.nome} vs ${players[c.b]?.nome} · ${n.history().length} meios-lances`); b.onclick = () => retomar(c, null); dl.append(b); });
   ['s-w', 's-b'].forEach((id, i) => {
@@ -4274,7 +4279,7 @@ function newGame() {
   } else if (S.mode === 'dist') {
     saveCorr();
     say('arbitro', `Partida à distância ${S.dist.id}: ${players[S.dist.w].nome} (brancas) vs ${players[S.dist.b].nome} (pretas). ${S.color === 'w' ? 'Faz o teu lance; depois envio o link ao adversário.' : 'Jogas de pretas: envia já o link para as brancas começarem.'} Eu verifico as regras nos dois aparelhos.`);
-    if (S.color === 'b') enviar();
+    sincronizar();
   } else {
     say('arbitro', `Partida entre ${players[S.local.w].nome} (brancas) e ${players[S.local.b].nome} (pretas). Eu só ajudo com regras: toca numa peça para ver para onde pode ir.`);
   }
@@ -4337,7 +4342,7 @@ function play(m) {
   arbitroEvento(r); renderAll();
   if (S.mode === 'dist' && S.dist.offer && S.dist.offer !== S.color) S.dist.offer = null;
   if (fim()) return;
-  if (S.mode === 'dist') { saveCorr(); enviar(); return; }
+  if (S.mode === 'dist') { saveCorr(); sincronizar(); return; }
   if (S.game.inCheck() && S.mode === 'local') say('arbitro', 'Xeque! O rei tem de sair do ataque.');
   if (S.mode === 'bot' && S.game.turn() !== S.color) botTurn();
 }
@@ -4368,7 +4373,7 @@ function terminar(res, txt, o = {}) {
     Object.assign(rec, { brancas: W.w, pretas: W.b });
     [W.w, W.b].forEach(k => { if (players[k]) players[k].jogos++; });
   }
-  if (S.mode === 'dist') { S.dist.res = res; S.dist.rtxt = txt; saveCorr(); if (!o.received) enviar(); }
+  if (S.mode === 'dist') { S.dist.res = res; S.dist.rtxt = txt; saveCorr(); if (!o.received) sincronizar(); }
   const hist = store.get('games', []); hist.push(rec); store.set('games', hist.slice(-300)); save(); header();
   say('analista', 'Queres que analise a partida? Encontro os momentos-chave e o que se podia ter jogado.', [['Analisar partida', analisar, true], ['Nova partida', () => show('setup')]]);
   renderAll();
@@ -4515,7 +4520,7 @@ const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/
 const dec = t => JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/')))));
 function saveCorr() { const m = store.get('corr', {}); m[S.dist.id] = { ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }; store.set('corr', m); }
 function enviar() {
-  const d = { v: 1, id: S.dist.id, w: S.dist.w, b: S.dist.b, pgn: S.game.pgn(), by: S.color, offer: S.dist.offer || null, res: S.over ? S.dist.res : null, rtxt: S.over ? S.dist.rtxt : null };
+  const d = { v: 1, id: S.dist.id, w: S.dist.w, b: S.dist.b, pgn: S.game.pgn(), by: S.color, offer: S.dist.offer || null, res: S.over ? S.dist.res : null, rtxt: S.over ? S.dist.rtxt : null, f: garantirFam().code };
   const url = BASE + '#j=' + enc(d), opp = players[S.dist[S.color === 'w' ? 'b' : 'w']]?.nome || 'adversário', last = S.hist[S.hist.length - 1];
   const msg = `♟ Tutor de Xadrez (partida ${d.id}): ${S.over ? 'partida terminada — ' + S.dist.rtxt : (last && last.color === S.color ? players[S.user].nome + ' jogou ' + pt(last.san) + '. ' : '') + (d.offer ? 'Proponho empate. ' : '') + 'É a tua vez.'} Abre: ${url}`;
   const copiar = () => { const f = () => say('arbitro', `Copia este link: <span class="san" style="word-break:break-all">${url}</span>`); try { navigator.clipboard.writeText(msg).then(() => say('arbitro', 'Mensagem com o link copiada. Cola-a no WhatsApp, SMS ou email.'), f); } catch { f(); } };
@@ -4540,13 +4545,15 @@ function retomar(c, d) {
   saveCorr();
   const last = S.hist[S.hist.length - 1], opp = players[S.dist[color === 'w' ? 'b' : 'w']]?.nome;
   if (S.game.turn() === S.color) say('arbitro', `${last ? opp + ' jogou ' + sanH(last.san) + '. ' : ''}É a tua vez, ${players[S.user]?.nome}. Joga e eu preparo o link de volta.`);
-  else { say('arbitro', `Aguardas o lance de ${opp}.`); enviar(); }
+  else { say('arbitro', fam && fam.paired ? `Aguardas o lance de ${opp}: chega sozinho quando houver internet.` : `Aguardas o lance de ${opp}.`); if (!(fam && fam.paired)) enviar(); }
   if (S.dist.offer && S.dist.offer !== S.color && S.game.turn() === S.color) say('arbitro', `${opp} propõe empate (regra FIDE 9.1).`, [['Aceitar empate', () => { if (!S.over) terminar('½-½', 'Empate por acordo.'); }, true], ['Recusar e jogar', () => { S.dist.offer = null; saveCorr(); say('arbitro', 'Empate recusado. Faz o teu lance.'); }]]);
 }
 function abrirLink() {
-  const h = location.hash; if (!h.startsWith('#j=')) return false;
+  const h = location.hash;
+  if (h.startsWith('#f=')) { try { history.replaceState(null, '', location.pathname); } catch { /* */ } fam = { code: h.slice(3), paired: true }; store.set('fam', fam); ligar(); pub({ k: 'h' }); aviso('Aparelho emparelhado: os lances passam a chegar sozinhos.'); return false; }
+  if (!h.startsWith('#j=')) return false;
   try { history.replaceState(null, '', location.pathname); } catch { /* */ }
-  let d; try { d = dec(h.slice(3)); } catch { show('play'); say('arbitro', 'Este link está estragado ou incompleto. Pede ao adversário que o envie outra vez.'); return true; }
+  let d; try { d = dec(h.slice(3)); if (d.f && !(fam && fam.paired)) { fam = { code: d.f, paired: true }; store.set('fam', fam); ligar(); pub({ k: 'h' }); } } catch { show('play'); say('arbitro', 'Este link está estragado ou incompleto. Pede ao adversário que o envie outra vez.'); return true; }
   const local = store.get('corr', {})[d.id];
   if (local) {
     const a = new Chess(), b = new Chess();
@@ -4559,6 +4566,78 @@ function abrirLink() {
   retomar(null, d); return true;
 }
 function retomarCom(local, d) { retomar({ ...local, pgn: d.pgn, offer: d.offer, res: d.res, rtxt: d.rtxt }, null); }
+
+/* ---------- sincronização automática (relé gratuito ntfy.sh, canal secreto da família) ---------- */
+const RELAY = window.TX_RELAY || 'https://ntfy.sh/';
+const DEV = store.get('dev', null) || (() => { const d = Math.random().toString(36).slice(2, 10); store.set('dev', d); return d; })();
+let fam = store.get('fam', null), es = null;
+function garantirFam() { if (!fam) { fam = { code: [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, '0')).join(''), paired: false }; store.set('fam', fam); } return fam; }
+const topico = () => 'tutorxadrez-' + fam.code;
+async function pub(o) { if (!fam || !navigator.onLine) return false; try { const r = await fetch(RELAY + topico(), { method: 'POST', body: JSON.stringify({ ...o, from: DEV }) }); return r.ok; } catch { return false; } }
+function dadosCorr(c) { return { v: 1, id: c.id, w: c.w, b: c.b, pgn: c.pgn, by: c.color, offer: c.offer || null, res: c.done ? c.res : null, rtxt: c.done ? c.rtxt : null }; }
+function lances(pgn) { const c = new Chess(); try { c.loadPgn(pgn || ''); return c.history(); } catch { return null; } }
+function ligar() {
+  if (!fam || es || !('EventSource' in window)) return;
+  try {
+    es = new EventSource(RELAY + topico() + '/sse?since=12h');
+    es.onmessage = e => { try { const m = JSON.parse(e.data); if (m.event && m.event !== 'message') return; const o = JSON.parse(m.message); if (o.from !== DEV) recebe(o); } catch { /* */ } };
+    es.onopen = () => { publicarPendentes(); renderSync(); };
+    es.onerror = () => renderSync();
+  } catch { es = null; }
+}
+async function publicarPendentes() {
+  const m = store.get('corr', {});
+  for (const c of Object.values(m)) {
+    if (!c.pend && c.done) continue;
+    const h = lances(c.pgn) || []; const minhaVez = (h.length % 2 === 0 ? 'w' : 'b') === c.color;
+    if (c.pend || !minhaVez) { if (await pub({ k: 'g', d: dadosCorr(c) })) { const n = store.get('corr', {}); if (n[c.id]) { n[c.id].pend = false; store.set('corr', n); } } }
+  }
+}
+async function sincronizar() {
+  garantirFam(); ligar(); saveCorr();
+  const ok = await pub({ k: 'g', d: dadosCorr({ ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }) });
+  const m = store.get('corr', {}); if (m[S.dist.id]) { m[S.dist.id].pend = !ok; store.set('corr', m); }
+  const opp = players[S.dist[S.color === 'w' ? 'b' : 'w']]?.nome || 'adversário';
+  if (ok && fam.paired) say('arbitro', S.over ? `Resultado enviado a ${opp} automaticamente.` : `Enviado a ${opp} automaticamente. O lance dele aparece aqui sozinho.`, [['Enviar também por link', enviar]]);
+  else { if (!ok) say('arbitro', 'Sem internet: fica guardado e segue sozinho quando houver ligação. Se tiveres pressa, envia por link.'); else say('arbitro', `Primeira vez com ${opp}: envia este link uma vez. Depois os lances passam a chegar sozinhos.`); enviar(); }
+  renderStatus();
+}
+function recebe(o) {
+  if (fam && !fam.paired) { fam.paired = true; store.set('fam', fam); renderSync(); }
+  if (o.k !== 'g' || !o.d) return;
+  const d = o.d, b = lances(d.pgn); if (!b) return;
+  const m = store.get('corr', {}), local = m[d.id], quem = players[d[d.by]]?.nome || 'O adversário';
+  if (!local) {
+    m[d.id] = { id: d.id, w: d.w, b: d.b, pgn: d.pgn, color: d.by === 'w' ? 'b' : 'w', offer: d.offer, res: d.res, rtxt: d.rtxt, done: false }; store.set('corr', m);
+    aviso(`${quem} convidou-te para uma partida à distância.`, [['Abrir', () => retomar(store.get('corr', {})[d.id], null)]]); if (!$('#v-setup').hidden) renderSetup(); return;
+  }
+  const a = lances(local.pgn) || [];
+  if (b.length < a.length) { if (!local.pend) pub({ k: 'g', d: dadosCorr(local) }); return; }
+  if (a.some((x, i) => x !== b[i])) { auditar('relé-adulterado'); return; }
+  if (b.length === a.length && (d.offer || null) === (local.offer || null) && (d.res || null) === (local.res || null)) return;
+  if (local.done) return;
+  const aberta = S.mode === 'dist' && S.dist && S.dist.id === d.id && !$('#v-play').hidden;
+  if (aberta) { retomarCom(local, d); aviso(b.length > a.length ? `${quem} jogou ${pt(b[b.length - 1])}.` : `${quem} enviou uma atualização.`); }
+  else { m[d.id] = { ...local, pgn: d.pgn, offer: d.offer, res: d.res, rtxt: d.rtxt }; store.set('corr', m); aviso(`${quem} jogou na partida ${d.id}. É a tua vez.`, [['Abrir', () => retomar(store.get('corr', {})[d.id], null)]]); if (!$('#v-setup').hidden) renderSetup(); }
+}
+function aviso(t, acts) {
+  const w = $('#toast'); w.innerHTML = `<span>${t}</span>`; (acts || []).forEach(([l, fn]) => { const b = el('button', 'btn pri', l); b.onclick = () => { w.hidden = true; fn(); }; w.append(b); });
+  const x = el('button', 'btn', '✕'); x.onclick = () => { w.hidden = true; }; w.append(x); w.hidden = false; speak(t);
+  clearTimeout(aviso.t); if (!acts) aviso.t = setTimeout(() => { w.hidden = true; }, 6000);
+}
+function renderSync() {
+  const e = $('#s-sync'); if (!e) return;
+  const est = !fam ? 'por ativar (ativa-se na primeira partida)' : !navigator.onLine ? 'sem internet (usa o link)' : fam.paired ? 'ligada ✓' : 'à espera do outro aparelho';
+  e.innerHTML = `<b>Sincronização automática:</b> ${est}`;
+  const b = el('button', 'btn', 'Emparelhar outro aparelho'); b.onclick = () => {
+    garantirFam(); ligar(); const url = BASE + '#f=' + fam.code, msg = '♟ Tutor de Xadrez: abre este link no teu aparelho para os lances chegarem sozinhos: ' + url;
+    show('play'); say('arbitro', 'Envia este link uma vez ao outro aparelho.', [navigator.share ? ['Partilhar', () => navigator.share({ title: 'Tutor de Xadrez', text: msg }).catch(() => {}), true] : ['WhatsApp', () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank'), true], ['Email', () => { location.href = 'mailto:?subject=Tutor%20de%20Xadrez&body=' + encodeURIComponent(msg); }], ['Copiar', () => { try { navigator.clipboard.writeText(msg).then(() => aviso('Link copiado.')); } catch { /* */ } }]]);
+  };
+  e.append(' ', b);
+}
+window.addEventListener('online', () => { ligar(); publicarPendentes(); renderSync(); });
+window.addEventListener('offline', renderSync);
+window.__txUpdate = () => { const ocupado = (S.game && !S.over && !$('#v-play').hidden) || LS; if (!ocupado) location.reload(); else aviso('Há uma versão nova da app.', [['Atualizar agora', () => location.reload()]]); };
 
 /* ---------- Evolução ---------- */
 function renderEvolucao() {
@@ -4743,7 +4822,7 @@ $('#b-draw').onclick = async () => {
   if (S.mode === 'dist') {
     S.dist.offer = S.color; saveCorr();
     if (S.game.turn() === S.color) return say('arbitro', 'Proposta de empate registada: segue com o teu próximo lance (regra FIDE 9.1).');
-    return enviar();
+    return sincronizar();
   }
   if (S.mode === 'local') {
     const quem = players[S.local[S.game.turn()]].nome, outro = players[S.local[S.game.turn() === 'w' ? 'b' : 'w']].nome;
@@ -4758,7 +4837,7 @@ $('#b-draw').onclick = async () => {
 $('#b-new').onclick = () => show('setup');
 
 /* ---------- arranque ---------- */
-header(); renderSetup(); if (!abrirLink()) show('setup');
+header(); renderSetup(); if (fam) ligar(); if (!abrirLink()) show('setup');
 window.addEventListener('hashchange', () => { abrirLink(); });
 
 </script>

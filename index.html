@@ -153,6 +153,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .opt.right{border-color:var(--good);box-shadow:inset 0 0 0 2px var(--good)} .opt.wrong{border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
 .fb{border-radius:10px;padding:12px 14px} .fb.good{background:color-mix(in srgb,var(--good) 18%,var(--surface))} .fb.bad{background:color-mix(in srgb,var(--bad) 16%,var(--surface))}
 .big{font-size:2.2rem;color:var(--hint);margin:6px 0;letter-spacing:.1em}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast .btn{color:var(--ink)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -190,7 +192,8 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div id="s-dist" hidden>
         <div class="field"><label for="s-opp">Adversário</label><select id="s-opp"></select></div>
         <div class="field"><span class="lbl">As minhas peças</span><div class="seg" id="s-dcol"><button data-v="w">Brancas</button><button data-v="b">Pretas</button></div></div>
-        <p class="note">Jogas o teu lance e a app prepara um link para enviares por WhatsApp, SMS ou email. O adversário abre-o na app dele (PC, tablet ou telemóvel), joga e devolve. O Juiz verifica as regras nos dois aparelhos e rejeita links adulterados.</p>
+        <p class="note">Com internet, os lances chegam sozinhos ao outro aparelho. Na primeira partida envias um link uma vez (WhatsApp, SMS ou email) para ligar os dois aparelhos. Sem internet, o lance fica guardado e segue quando houver ligação, ou envias por link. O Juiz verifica as regras nos dois aparelhos.</p>
+        <p class="note" id="s-sync"></p>
         <div class="seg" id="s-dlist"></div>
       </div>
       <div id="s-local" hidden>
@@ -278,8 +281,9 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 </main>
 
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
+<div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden></div>
 <script type="module" src="app.js"></script>
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){setInterval(function(){r.update().catch(function(){})},1800000);document.addEventListener('visibilitychange',function(){if(!document.hidden)r.update().catch(function(){})})}).catch(function(){});var had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!had||rl)return;rl=true;if(window.__txUpdate)window.__txUpdate();else location.reload();});}</script>
 </body>
 </html>
