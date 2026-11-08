@@ -4151,7 +4151,7 @@ function quadro(t) {
   olhos.forEach(o => { o.position.x = est.olhar[0] * .03; o.position.y = est.olhar[1] * .03; });
   if (s > prox) { prox = s + 2.5 + Math.random() * 3; palp.forEach(p => { p._b = s; }); if (Math.random() < .3) alvo.olhar = [Math.random() * 2 - 1, Math.random() - .3]; }
   palp.forEach(p => { const b = s - (p._b || -9); p.scale.y = b < .15 ? 1 - Math.abs(b - .075) / .075 * .9 : .1; });
-  const fala = s < falaAte || (window.speechSynthesis && speechSynthesis.speaking);
+  const fala = s < falaAte || window.__txFalando || (window.speechSynthesis && speechSynthesis.speaking);
   boca.visible = fala || est.sorr < .3; sorriso.visible = !fala && Math.abs(est.sorr) >= .3;
   boca.scale.y = fala ? .25 + Math.abs(Math.sin(s * 13) * Math.sin(s * 5.3)) * .9 : lerp(boca.scale.y, .25, .2);
   sorriso.rotation.z = est.sorr >= 0 ? Math.PI : 0; sorriso.position.y = est.sorr >= 0 ? P.sorrUp : P.sorrDn;
@@ -4182,7 +4182,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.8.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.9.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4290,15 +4290,45 @@ function escolherVoz() { try { const v = speechSynthesis.getVoices().filter(x =>
   const G = (TUTORES[S.tutor] || TUTORES.dama).g, A = G === 'f' ? FEM : MASC, B = G === 'f' ? MASC : FEM;
   vozPT = v.find(x => pt(x) && A.test(x.name)) || v.find(x => A.test(x.name)) || v.find(x => pt(x) && !B.test(x.name)) || v.find(x => pt(x)) || v[0] || null; vozMasc = !!(vozPT && A.test(vozPT.name)); } catch { /* sem voz */ } }
 if ('speechSynthesis' in window) { escolherVoz(); speechSynthesis.onvoiceschanged = escolherVoz; }
-function speak(t) {
-  if (!S.voz || !('speechSynthesis' in window)) return;
+const VOZ_M = 'pt_PT-tugão-medium';
+let piperOk = store.get('piper', false), audioAtual = null, ttsMod = null;
+async function ttsLib() { if (!ttsMod) ttsMod = await import('./tts.js'); return ttsMod; }
+const precisaPiper = () => (TUTORES[S.tutor] || {}).g === 'm' && !vozMasc;
+async function falarPiper(txt) {
+  try {
+    const m = await ttsLib(), wav = await m.predict({ text: txt, voiceId: VOZ_M });
+    if (audioAtual) try { audioAtual.pause(); } catch { /* */ }
+    const a = new Audio(URL.createObjectURL(wav)); audioAtual = a; window.__txFalando = true;
+    a.onended = a.onpause = a.onerror = () => { window.__txFalando = false; };
+    await a.play(); return true;
+  } catch { window.__txFalando = false; return false; }
+}
+function falarSistema(txt) {
+  if (!('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g, '').replace(/[«»]/g, ''));
+    const u = new SpeechSynthesisUtterance(txt);
     u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = (TUTORES[S.tutor] || TUTORES.dama).g === 'f' ? (vozMasc ? 1.05 : 1.35) : (vozMasc ? .95 : .55);
     speechSynthesis.speak(u);
   } catch { /* sem voz */ }
 }
+function speak(t) {
+  if (!S.voz) return;
+  const txt = String(t).replace(/<[^>]+>/g, '').replace(/[«»]/g, '');
+  if (audioAtual) try { audioAtual.pause(); } catch { /* */ }
+  if (precisaPiper() && piperOk) { try { speechSynthesis.cancel(); } catch { /* */ } falarPiper(txt).then(ok => { if (!ok) falarSistema(txt); }); return; }
+  falarSistema(txt);
+}
+async function baixarVoz() {
+  try {
+    const m = await ttsLib(); aviso('A descarregar a voz masculina… 0 %', []);
+    await m.download(VOZ_M, p => { const e = $('#toast span'); if (e && p && p.total) e.textContent = `A descarregar a voz masculina… ${Math.round(p.loaded / p.total * 100)} %`; });
+    try { const w = await m.predict({ text: 'Olá.', voiceId: VOZ_M }); if (!w || !w.size || w.size < 1000) throw 0; } catch { try { await m.remove(VOZ_M); } catch { /* */ } throw new Error('falhou'); }
+    piperOk = true; store.set('piper', true); aviso('Voz masculina instalada neste aparelho.');
+    speak(`Olá! Sou o ${TUTORES[S.tutor].n}. Agora já tenho voz de homem.`);
+  } catch { aviso('Não foi possível descarregar a voz (precisa de internet). Tenta mais tarde.'); }
+}
+function propostaVoz() { if (precisaPiper() && !piperOk) aviso('Este aparelho só tem voz feminina em português. Descarregar uma voz masculina portuguesa natural (cerca de 60 MB, uma só vez; depois funciona sem internet)?', [['Descarregar voz masculina', baixarVoz]]); }
 function say(ag, html, acts) {
   const a = AG[ag], m = el('div', 'msg');
   const av = el('div', 'av', a.i); av.style.background = a.c;
@@ -4325,7 +4355,7 @@ function show(v) {
 function aplicarTutor() {
   const t = TUTORES[S.tutor] || TUTORES.dama; AG.mestre.n = t.n; AG.mestre.i = `<svg viewBox="0 0 40 40" style="width:30px;height:30px"><use href="#${t.ic}"/></svg>`;
   const l = $('#ladder-lbl'); if (l) l.textContent = t.n + ' · ajuda em degraus';
-  Mestre.tipo(S.tutor); escolherVoz();
+  Mestre.tipo(S.tutor); escolherVoz(); setTimeout(propostaVoz, 1500);
 }
 function header() {
   const ts = $('#tutor'); if (ts) { ts.value = S.tutor; ts.onchange = () => { S.tutor = ts.value; save(); aplicarTutor(); Mestre.humor('feliz', 'aceno'); const t = TUTORES[S.tutor]; speak(`Olá! Sou ${t.n === 'Dama Leonor' ? 'a' : 'o'} ${t.n}. Vamos aprender xadrez juntos.`); Mestre.fala('x'.repeat(50)); }; }
@@ -5036,7 +5066,7 @@ $('#nav-jogar').onclick = () => show(S.game && !S.over ? 'play' : 'setup');
 $('#nav-evolucao').onclick = () => show('evolucao');
 $('#nav-regras').onclick = () => show('regras');
 $('#nav-aprender').onclick = () => show('aprender');
-$('#voz').onclick = () => { S.voz = !S.voz; if (!S.voz) try { speechSynthesis.cancel(); } catch { /* */ } save(); header(); };
+$('#voz').onclick = () => { S.voz = !S.voz; if (!S.voz) try { speechSynthesis.cancel(); if (audioAtual) audioAtual.pause(); } catch { /* */ } save(); header(); };
 $('#start').onclick = newGame;
 $$('#ladder button').forEach(b => { b.onclick = () => mestre(+b.dataset.l); });
 $('#b-first').onclick = () => { S.view = 0; renderAll(); };
