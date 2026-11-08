@@ -120,6 +120,19 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .tw{overflow-x:auto}
 .rules{columns:2 300px;gap:24px} .rules p{break-inside:avoid;margin:0 0 12px}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden} .bar i{display:block;height:100%;background:var(--accent);width:0}
+/* aprender */
+.lhead{display:flex;flex-direction:column;gap:8px;margin-bottom:16px} .lbar{flex:1;height:10px;border-radius:5px}
+.unit{margin-bottom:18px} .nodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));gap:10px}
+.node{border:2px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.node small{color:var(--hint);font-size:.95rem;letter-spacing:.1em}
+.node.open{border-color:var(--accent);box-shadow:0 3px 0 var(--accent)} .node.done{border-color:var(--good)} .node.locked{opacity:.45}
+.lesson{max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.ltop{display:flex;align-items:center;gap:12px}
+.mboard{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:100%;max-width:440px;aspect-ratio:1;margin:0 auto;border-radius:6px;overflow:hidden}
+.opts{display:grid;gap:8px} .opt{text-align:left;padding:12px 14px;font-size:1rem}
+.opt.right{border-color:var(--good);box-shadow:inset 0 0 0 2px var(--good)} .opt.wrong{border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
+.fb{border-radius:10px;padding:12px 14px} .fb.good{background:color-mix(in srgb,var(--good) 18%,var(--surface))} .fb.bad{background:color-mix(in srgb,var(--bad) 16%,var(--surface))}
+.big{font-size:2.2rem;color:var(--hint);margin:6px 0;letter-spacing:.1em}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -133,6 +146,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
   </div>
   <span class="who" id="who"></span>
   <nav aria-label="Secções">
+    <button id="nav-aprender">Aprender</button>
     <button id="nav-jogar" aria-current="true">Jogar</button>
     <button id="nav-evolucao">Evolução</button>
     <button id="nav-regras">Regras</button>
@@ -221,6 +235,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
     </div>
   </section>
 
+  <section id="v-aprender" hidden></section>
   <section id="v-evolucao" hidden></section>
 
   <section id="v-regras" hidden>
