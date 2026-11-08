@@ -163,6 +163,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .clock b{font-family:var(--f-mono);font-size:1.35rem;color:var(--ink);font-variant-numeric:tabular-nums}
 .clock.on{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)} .clock.on b{color:var(--accent)}
 .clock.low b{color:var(--bad)}
+.toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -181,6 +182,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
     <button id="nav-evolucao">Evolução</button>
     <button id="nav-regras">Regras</button>
   </nav>
+  <label class="toggle" for="tutor">Tutor <select id="tutor" aria-label="Tutor virtual"><option value="dama">Dama Leonor · voz feminina</option><option value="bispo">Bispo Gaspar · voz masculina</option><option value="mestre">Mestre Gaspar · voz masculina</option></select></label>
   <button class="toggle" id="voz" aria-pressed="true">Voz: ligada</button>
 </header>
 
@@ -223,7 +225,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div class="field"><label for="s-elo">Força</label>
         <div class="elo" id="s-elo-v"></div>
         <input type="range" id="s-elo" min="400" max="2500" step="25">
-        <label class="note"><input type="checkbox" id="s-auto" checked> Automático: ao teu nível (±50)</label><br><label class="note"><input type="checkbox" id="s-coment" checked> O Mestre comenta os meus lances</label></div>
+        <label class="note"><input type="checkbox" id="s-auto" checked> Automático: ao teu nível (±50)</label><br><label class="note"><input type="checkbox" id="s-coment" checked> O tutor comenta os meus lances</label></div>
       <div class="field"><span class="lbl">As tuas peças</span>
         <div class="seg" id="s-color">
           <button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Ao acaso</button>
@@ -254,7 +256,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div class="mav" id="p-av" aria-label="Mestre Gaspar"></div>
       <div class="status"><span class="turn" id="turn"></span><span class="pill" id="match"></span></div>
       <div>
-        <span class="lbl">Mestre Gaspar · ajuda em degraus</span>
+        <span class="lbl" id="ladder-lbl">Dama Leonor · ajuda em degraus</span>
         <div class="ladder" id="ladder">
           <button data-l="1"><small>1</small>Pergunta</button>
           <button data-l="2"><small>2</small>Onde olhar</button>
@@ -295,7 +297,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden></div>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=0.8.0"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){setInterval(function(){r.update().catch(function(){})},1800000);document.addEventListener('visibilitychange',function(){if(!document.hidden)r.update().catch(function(){})})}).catch(function(){});var had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!had||rl)return;rl=true;if(window.__txUpdate)window.__txUpdate();else location.reload();});}</script>
 </body>
 </html>

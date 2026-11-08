@@ -157,6 +157,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .clock b{font-family:var(--f-mono);font-size:1.35rem;color:var(--ink);font-variant-numeric:tabular-nums}
 .clock.on{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)} .clock.on b{color:var(--accent)}
 .clock.low b{color:var(--bad)}
+.toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -175,6 +176,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
     <button id="nav-evolucao">Evolução</button>
     <button id="nav-regras">Regras</button>
   </nav>
+  <label class="toggle" for="tutor">Tutor <select id="tutor" aria-label="Tutor virtual"><option value="dama">Dama Leonor · voz feminina</option><option value="bispo">Bispo Gaspar · voz masculina</option><option value="mestre">Mestre Gaspar · voz masculina</option></select></label>
   <button class="toggle" id="voz" aria-pressed="true">Voz: ligada</button>
 </header>
 
@@ -217,7 +219,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div class="field"><label for="s-elo">Força</label>
         <div class="elo" id="s-elo-v"></div>
         <input type="range" id="s-elo" min="400" max="2500" step="25">
-        <label class="note"><input type="checkbox" id="s-auto" checked> Automático: ao teu nível (±50)</label><br><label class="note"><input type="checkbox" id="s-coment" checked> O Mestre comenta os meus lances</label></div>
+        <label class="note"><input type="checkbox" id="s-auto" checked> Automático: ao teu nível (±50)</label><br><label class="note"><input type="checkbox" id="s-coment" checked> O tutor comenta os meus lances</label></div>
       <div class="field"><span class="lbl">As tuas peças</span>
         <div class="seg" id="s-color">
           <button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Ao acaso</button>
@@ -248,7 +250,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
       <div class="mav" id="p-av" aria-label="Mestre Gaspar"></div>
       <div class="status"><span class="turn" id="turn"></span><span class="pill" id="match"></span></div>
       <div>
-        <span class="lbl">Mestre Gaspar · ajuda em degraus</span>
+        <span class="lbl" id="ladder-lbl">Dama Leonor · ajuda em degraus</span>
         <div class="ladder" id="ladder">
           <button data-l="1"><small>1</small>Pergunta</button>
           <button data-l="2"><small>2</small>Onde olhar</button>
@@ -4033,73 +4035,107 @@ const CURSO = [
   ] }
 ];
 
-/*! Tutor de Xadrez — Avatar 3D do Mestre Gaspar (bispo falante) — © 2026 Nuno Freitas. Todos os direitos reservados. Ref. TX-NF-2026-3FCA48 */
-// Personagem original: um bispo de xadrez falante, de óculos, animado em three.js (MIT).
-let T = null, R = null, cena, cam, raiz, cabeca, olhos = [], palp = [], sobr = [], boca, sorriso, bracoD, bracoE, corpo;
-let host = null, alvo = { sob: 0, sobY: 0, sorr: 0, cabX: 0, cabY: 0, olhar: [0, 0] }, gesto = null, gT = 0, falaAte = 0, prox = 2;
-const est = { sob: 0, sobY: 0, sorr: 0, cabX: 0, cabY: 0, olhar: [0, 0] };
-async function carregar() {
-  if (T) return T;
-  T = window.THREE || await import('./three.module.min.js');
-  return T;
-}
-function mat(c, r = .6) { return new T.MeshStandardMaterial({ color: c, roughness: r, metalness: 0 }); }
-function construir() {
-  cena = new T.Scene();
-  cam = new T.PerspectiveCamera(28, 1, .1, 50); cam.position.set(0, 1.2, 6); cam.lookAt(0, 1.1, 0);
+/*! Tutor de Xadrez — Avatares 3D do tutor (Dama, Bispo, Mestre) — © 2026 Nuno Freitas. Todos os direitos reservados. Ref. TX-NF-2026-3FCA48 */
+// Personagens originais animadas em three.js (MIT): Dama (peça rainha), Bispo (peça bispo) e Mestre (mestre de xadrez idoso).
+let T = null, R = null, cena, cam, raiz, cabeca, olhos = [], palp = [], sobr = [], boca, sorriso, bracoD, bracoE, corpo, P = {};
+let host = null, tipo = 'dama', alvo = { sob: 0, sobY: 0, sorr: .5, olhar: [0, 0] }, gesto = null, gT = 0, falaAte = 0, prox = 2;
+const est = { sob: 0, sobY: 0, sorr: .5, olhar: [0, 0] };
+async function carregar() { if (!T) T = window.THREE || await import('./three.module.min.js'); return T; }
+const mat = (c, r = .5) => new T.MeshStandardMaterial({ color: c, roughness: r, metalness: 0 });
+const lathe = (pts, m, seg = 48) => new T.Mesh(new T.LatheGeometry(pts.map(([x, y]) => new T.Vector2(x, y)), seg), m);
+function anel(r, y, m, g = .045) { const o = new T.Mesh(new T.TorusGeometry(r, g, 12, 48), m); o.rotation.x = Math.PI / 2; o.position.y = y; raiz.add(o); return o; }
+function cenaBase() {
+  cena = new T.Scene(); olhos = []; palp = []; sobr = [];
+  cam = new T.PerspectiveCamera(28, 1, .1, 50);
   cena.add(new T.HemisphereLight(0xffffff, 0x445566, 1.5));
   const d = new T.DirectionalLight(0xffffff, 1.7); d.position.set(2, 4, 5); cena.add(d);
   const d2 = new T.DirectionalLight(0x9fe0d5, .6); d2.position.set(-3, 2, -2); cena.add(d2);
   raiz = new T.Group(); cena.add(raiz);
-  const marfim = mat(0xF4EBDD, .45), teal = mat(0x0F6E63, .5), escuro = mat(0x2B2B2B, .2), ouro = mat(0xD4A017, .3);
-  // corpo: base e haste de um bispo de xadrez
-  const perfil = [[0, 0], [.78, 0], [.78, .1], [.64, .18], [.62, .26], [.44, .34], [.32, .5], [.27, .82], [.3, .9], [0, .9]].map(([x, y]) => new T.Vector2(x, y));
-  corpo = new T.Mesh(new T.LatheGeometry(perfil, 48), marfim); raiz.add(corpo);
-  const anel = (r, y, m, g = .045) => { const o = new T.Mesh(new T.TorusGeometry(r, g, 12, 48), m); o.rotation.x = Math.PI / 2; o.position.y = y; raiz.add(o); return o; };
-  anel(.7, .14, teal, .05); anel(.45, .33, ouro);
-  const colar = new T.Mesh(new T.CylinderGeometry(.46, .42, .12, 40), teal); colar.position.y = .94; raiz.add(colar);
-  anel(.46, 1.0, ouro, .03);
-  // braços pequenos (pivot no colar)
-  const braco = lado => { const g = new T.Group(); g.position.set(.36 * lado, .92, .05); const b = new T.Mesh(new T.CapsuleGeometry(.07, .42, 6, 12), marfim); b.position.y = -.28; g.add(b); const m = new T.Mesh(new T.SphereGeometry(.1, 16, 12), marfim); m.position.y = -.56; g.add(m); g.rotation.z = .35 * lado; raiz.add(g); return g; };
+}
+function bracos(pele, manga, x, y, comp = .42, esp = .07) {
+  const braco = l => { const g = new T.Group(); g.position.set(x * l, y, .05); const b = new T.Mesh(new T.CapsuleGeometry(esp, comp, 6, 12), manga); b.position.y = -comp / 2 - .06; g.add(b); const m = new T.Mesh(new T.SphereGeometry(esp + .03, 16, 12), pele); m.position.y = -comp - .14; g.add(m); g.rotation.z = .35 * l; raiz.add(g); return g; };
   bracoD = braco(-1); bracoE = braco(1);
-  // cabeça: mitra do bispo, com rosto
+}
+function rosto({ pele, sob = 0x6B4F3A, y = -.02, z = .38, sep = .15, oculos = false, pestanas = false, labios = 0x7A2E2A, bocaY = -.25, bocaZ = .39 }) {
+  const ouro = mat(0xD4A017, .3);
+  [-1, 1].forEach(l => {
+    const g = new T.Group(); g.position.set(sep * l, y, z); cabeca.add(g);
+    g.add(new T.Mesh(new T.SphereGeometry(.085, 16, 12), mat(0xFFFFFF, .3)));
+    const p = new T.Mesh(new T.SphereGeometry(.045, 12, 10), mat(0x2B2B2B, .2)); p.position.z = .06; g.add(p); olhos.push(p);
+    const br = new T.Mesh(new T.SphereGeometry(.013, 8, 6), mat(0xFFFFFF, .1)); br.position.set(.015, .02, .1); g.add(br);
+    const pp = new T.Mesh(new T.SphereGeometry(.09, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), pele); pp.rotation.x = -Math.PI / 2 + .2; pp.scale.y = .1; g.add(pp); palp.push(pp);
+    if (pestanas) for (let i = -1; i <= 1; i++) { const c = new T.Mesh(new T.CylinderGeometry(.006, .006, .06, 4), mat(0x2B2B2B)); c.position.set((.05 * i + .03) * l, .1, .03); c.rotation.z = -.4 * l - i * .25 * l; g.add(c); }
+    const s = new T.Mesh(new T.CapsuleGeometry(.02, .12, 4, 8), mat(sob, .7)); s.rotation.z = Math.PI / 2; s.position.set(sep * l, y + .16, z + .04); cabeca.add(s); sobr.push(s);
+    if (oculos) { const aro = new T.Mesh(new T.TorusGeometry(.115, .013, 8, 28), ouro); aro.position.set(sep * l, y, z + .08); cabeca.add(aro); }
+    const f = new T.Mesh(new T.SphereGeometry(.06, 12, 10), mat(0xF0B9A6, .8)); f.position.set((sep + .1) * l, y - .15, z - .04); f.scale.set(1, .6, .4); cabeca.add(f);
+  });
+  if (oculos) { const pt = new T.Mesh(new T.CylinderGeometry(.011, .011, .08, 6), ouro); pt.rotation.z = Math.PI / 2; pt.position.set(0, y + .01, z + .1); cabeca.add(pt); }
+  boca = new T.Mesh(new T.SphereGeometry(.07, 16, 10), mat(labios)); boca.position.set(0, bocaY, bocaZ); boca.scale.set(1.1, .25, .5); cabeca.add(boca);
+  sorriso = new T.Mesh(new T.TorusGeometry(.09, .018, 8, 20, Math.PI), mat(labios)); sorriso.position.set(0, bocaY + .04, bocaZ + .02); cabeca.add(sorriso);
+  P = { sobY0: y + .16, sorrUp: bocaY + .04, sorrDn: bocaY - .03 };
+}
+function construirBispo() {
+  cenaBase(); cam.position.set(0, 1.2, 6); cam.lookAt(0, 1.1, 0);
+  const marfim = mat(0xF4EBDD, .45), teal = mat(0x0F6E63), ouro = mat(0xD4A017, .3);
+  corpo = lathe([[0, 0], [.78, 0], [.78, .1], [.64, .18], [.62, .26], [.44, .34], [.32, .5], [.27, .82], [.3, .9], [0, .9]], marfim); raiz.add(corpo);
+  anel(.7, .14, teal, .05); anel(.45, .33, ouro);
+  const colar = new T.Mesh(new T.CylinderGeometry(.46, .42, .12, 40), teal); colar.position.y = .94; raiz.add(colar); anel(.46, 1.0, ouro, .03);
+  bracos(marfim, marfim, .36, .92);
   cabeca = new T.Group(); cabeca.position.y = 1.5; raiz.add(cabeca);
   const mitra = new T.Mesh(new T.SphereGeometry(.5, 40, 28), marfim); mitra.scale.set(.86, 1.12, .86); cabeca.add(mitra);
   const ponta = new T.Mesh(new T.ConeGeometry(.3, .34, 32), marfim); ponta.position.y = .58; cabeca.add(ponta);
   const bola = new T.Mesh(new T.SphereGeometry(.11, 20, 14), ouro); bola.position.y = .8; cabeca.add(bola);
   const corte = new T.Mesh(new T.BoxGeometry(.05, .5, .12), teal); corte.position.set(.14, .36, .27); corte.rotation.set(-.55, 0, -.6); cabeca.add(corte);
-  // olhos, pálpebras, sobrancelhas, óculos
-  [-1, 1].forEach(l => {
-    const g = new T.Group(); g.position.set(.15 * l, -.02, .38); cabeca.add(g);
-    g.add(new T.Mesh(new T.SphereGeometry(.085, 16, 12), mat(0xFFFFFF, .3)));
-    const p = new T.Mesh(new T.SphereGeometry(.045, 12, 10), escuro); p.position.z = .06; g.add(p); olhos.push(p);
-    const brilho = new T.Mesh(new T.SphereGeometry(.013, 8, 6), mat(0xFFFFFF, .1)); brilho.position.set(.015, .02, .1); g.add(brilho);
-    const pp = new T.Mesh(new T.SphereGeometry(.09, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), marfim); pp.rotation.x = -Math.PI / 2 + .2; pp.scale.y = .1; g.add(pp); palp.push(pp);
-    const s = new T.Mesh(new T.CapsuleGeometry(.022, .12, 4, 8), mat(0x6B4F3A, .7)); s.rotation.z = Math.PI / 2; s.position.set(.15 * l, .14, .42); cabeca.add(s); sobr.push(s);
-    const aro = new T.Mesh(new T.TorusGeometry(.115, .013, 8, 28), ouro); aro.position.set(.15 * l, -.02, .46); cabeca.add(aro);
-  });
-  const ponte = new T.Mesh(new T.CylinderGeometry(.011, .011, .08, 6), ouro); ponte.rotation.z = Math.PI / 2; ponte.position.set(0, -.01, .48); cabeca.add(ponte);
-  const face = new T.Mesh(new T.SphereGeometry(.06, 12, 10), mat(0xF0C9B6, .7)); [-1, 1].forEach(l => { const f = face.clone(); f.position.set(.25 * l, -.17, .34); f.scale.set(1, .6, .4); cabeca.add(f); });
-  // boca
-  boca = new T.Mesh(new T.SphereGeometry(.07, 16, 10), mat(0x7A2E2A)); boca.position.set(0, -.25, .39); boca.scale.set(1.1, .25, .5); cabeca.add(boca);
-  sorriso = new T.Mesh(new T.TorusGeometry(.09, .017, 8, 20, Math.PI), mat(0x7A2E2A)); sorriso.position.set(0, -.21, .41); sorriso.rotation.z = Math.PI; cabeca.add(sorriso);
+  rosto({ pele: marfim, oculos: true });
 }
+function construirDama() {
+  cenaBase(); cam.position.set(0, 1.3, 6.2); cam.lookAt(0, 1.2, 0);
+  const marfim = mat(0xF6EEE4, .4), rubi = mat(0x9B2C4A, .45), ouro = mat(0xD4A017, .3), cabelo = mat(0x5A3A24, .7);
+  corpo = lathe([[0, 0], [.8, 0], [.8, .1], [.66, .18], [.64, .26], [.46, .34], [.3, .55], [.24, .9], [.34, 1.0], [0, 1.0]], marfim); raiz.add(corpo);
+  anel(.72, .14, rubi, .05); anel(.47, .33, ouro);
+  const colar = new T.Mesh(new T.CylinderGeometry(.42, .36, .14, 40), rubi); colar.position.y = 1.03; raiz.add(colar); anel(.42, 1.1, ouro, .03);
+  for (let i = 0; i < 7; i++) { const p = new T.Mesh(new T.SphereGeometry(.03, 10, 8), mat(0xFFFFFF, .2)); const a = (i - 3) * .28; p.position.set(Math.sin(a) * .43, 1.12 - Math.abs(i - 3) * .015, Math.cos(a) * .43); raiz.add(p); }
+  bracos(marfim, rubi, .36, 1.0, .4, .065);
+  cabeca = new T.Group(); cabeca.position.y = 1.58; raiz.add(cabeca);
+  const cab = new T.Mesh(new T.SphereGeometry(.5, 40, 28), marfim); cab.scale.set(.88, 1, .88); cabeca.add(cab);
+  const cabel = new T.Mesh(new T.SphereGeometry(.52, 32, 20, 0, Math.PI * 2, 0, Math.PI * .5), cabelo); cabel.scale.set(.92, 1, .95); cabel.position.y = .04; cabel.rotation.x = -.25; cabeca.add(cabel);
+  const nuca = new T.Mesh(new T.SphereGeometry(.42, 24, 16), cabelo); nuca.position.set(0, -.15, -.18); nuca.scale.set(1, 1.1, .8); cabeca.add(nuca);
+  const coroa = lathe([[.3, 0], [.36, .2], [.33, .22], [0, .22]], ouro, 40); coroa.position.y = .4; cabeca.add(coroa);
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, b = new T.Mesh(new T.SphereGeometry(.05, 12, 10), ouro); b.position.set(Math.sin(a) * .36, .66, Math.cos(a) * .36); cabeca.add(b); }
+  const joia = new T.Mesh(new T.SphereGeometry(.06, 16, 12), rubi); joia.position.set(0, .52, .35); cabeca.add(joia);
+  const topo = new T.Mesh(new T.SphereGeometry(.08, 16, 12), ouro); topo.position.y = .7; cabeca.add(topo);
+  [-1, 1].forEach(l => { const b = new T.Mesh(new T.SphereGeometry(.035, 10, 8), ouro); b.position.set(.45 * l, -.12, .02); cabeca.add(b); });
+  rosto({ pele: marfim, sob: 0x5A3A24, pestanas: true, labios: 0xB0364E, bocaY: -.24, bocaZ: .4 });
+}
+function construirMestre() {
+  cenaBase(); cam.position.set(0, 1.4, 6); cam.lookAt(0, 1.25, 0);
+  const pele = mat(0xE9C3A0, .6), branco = mat(0xF2F2EE, .9), teal = mat(0x0F6E63), escuro = mat(0x16302C), ouro = mat(0xD4A017, .35);
+  corpo = lathe([[0, 0], [1.05, 0], [1.05, .12], [.85, .22], [.8, .3], [.62, .9], [.55, 1.05], [.48, 1.12], [0, 1.12]], teal); corpo.position.y = -.05; raiz.add(corpo);
+  anel(1.0, .1, ouro, .05); anel(.48, 1.07, ouro, .06);
+  bracos(pele, mat(0x0B5A51), .72, 1.0, .75, .12);
+  cabeca = new T.Group(); cabeca.position.y = 1.62; raiz.add(cabeca);
+  cabeca.add(new T.Mesh(new T.SphereGeometry(.5, 32, 24), pele));
+  const nariz = new T.Mesh(new T.SphereGeometry(.08, 16, 12), mat(0xDDA884)); nariz.position.set(0, -.02, .5); nariz.scale.set(1, 1.2, 1); cabeca.add(nariz);
+  const cabl = new T.Mesh(new T.SphereGeometry(.52, 24, 16, 0, Math.PI * 2, Math.PI * .45, Math.PI * .4), branco); cabl.rotation.x = .25; cabeca.add(cabl);
+  const barba = lathe([[0, 0], [.32, .05], [.4, .22], [.36, .4], [0, .42]], branco, 24); barba.position.set(0, -.62, .18); barba.scale.set(1, 1, .75); cabeca.add(barba);
+  [-1, 1].forEach(l => { const b = new T.Mesh(new T.CapsuleGeometry(.045, .16, 6, 10), branco); b.position.set(.1 * l, -.17, .47); b.rotation.z = Math.PI / 2 + .35 * l; cabeca.add(b); });
+  const boina = new T.Mesh(new T.SphereGeometry(.5, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), escuro); boina.position.y = .22; boina.scale.set(1.08, .45, 1.08); boina.rotation.z = -.12; cabeca.add(boina);
+  rosto({ pele, sob: 0xE8E8E8, y: .1, z: .42, sep: .17, oculos: true, bocaY: -.28, bocaZ: .44 });
+}
+const CONS = { dama: construirDama, bispo: construirBispo, mestre: construirMestre };
 const lerp = (a, b, k) => a + (b - a) * k;
 function quadro(t) {
   if (!R || !host || !host.isConnected || document.hidden) { R && (R._parado = true); return; }
   requestAnimationFrame(quadro);
   const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
-  if (R._w !== w || R._h !== h) { R.setSize(w, h, false); cam.aspect = w / h; cam.position.z = w / h < 1.1 ? 6.8 : 6; cam.updateProjectionMatrix(); R._w = w; R._h = h; }
-  const s = t / 1000, k = .12;
-  // respiração e balanço
+  if (R._w !== w || R._h !== h || R._cam !== cam) { R.setSize(w, h, false); cam.aspect = w / h; cam.position.z = (w / h < 1.1 ? 6.9 : 6.1); cam.updateProjectionMatrix(); R._w = w; R._h = h; R._cam = cam; }
+  const s = t / 1000;
   raiz.position.y = Math.sin(s * 1.6) * .02; corpo.scale.set(1 + Math.sin(s * 1.6) * .01, 1, 1);
-  for (const c of ['sob', 'sobY', 'sorr', 'cabX', 'cabY']) est[c] = lerp(est[c], alvo[c], k);
+  for (const c of ['sob', 'sobY', 'sorr']) est[c] = lerp(est[c], alvo[c], .12);
   est.olhar[0] = lerp(est.olhar[0], alvo.olhar[0], .15); est.olhar[1] = lerp(est.olhar[1], alvo.olhar[1], .15);
-  let rx = est.cabX + Math.sin(s * .7) * .03, ry = est.cabY + Math.sin(s * .5) * .06, rz = Math.sin(s * .9) * .02;
-  let bD = .25, bE = -.25, bDx = 0, bEx = 0;
-  // gestos
+  let rx = Math.sin(s * .7) * .03, ry = Math.sin(s * .5) * .06, rz = Math.sin(s * .9) * .02, bD = .25, bE = -.25, bDx = 0, bEx = 0;
   if (gesto) {
-    const g = (s - gT);
+    const g = s - gT;
     if (gesto === 'aceno') rx += Math.sin(g * 9) * .12 * Math.max(0, 1 - g / 1.2);
     if (gesto === 'abana') ry += Math.sin(g * 9) * .16 * Math.max(0, 1 - g / 1.2);
     if (gesto === 'aponta') { bD = .3; bDx = -1.25; }
@@ -4111,34 +4147,29 @@ function quadro(t) {
   bracoD.rotation.z = lerp(bracoD.rotation.z, -bD, .12); bracoE.rotation.z = lerp(bracoE.rotation.z, -bE, .12);
   bracoD.rotation.x = lerp(bracoD.rotation.x, bDx, .12); bracoE.rotation.x = lerp(bracoE.rotation.x, bEx, .12);
   cabeca.rotation.set(rx, ry, rz);
-  // sobrancelhas
-  sobr.forEach((b, i) => { const l = i ? 1 : -1; b.rotation.z = est.sob * l; b.position.y = .14 + est.sobY; });
-  // olhar e piscar
+  sobr.forEach((b, i) => { b.rotation.z = Math.PI / 2 + est.sob * (i ? 1 : -1); b.position.y = P.sobY0 + est.sobY; });
   olhos.forEach(o => { o.position.x = est.olhar[0] * .03; o.position.y = est.olhar[1] * .03; });
   if (s > prox) { prox = s + 2.5 + Math.random() * 3; palp.forEach(p => { p._b = s; }); if (Math.random() < .3) alvo.olhar = [Math.random() * 2 - 1, Math.random() - .3]; }
   palp.forEach(p => { const b = s - (p._b || -9); p.scale.y = b < .15 ? 1 - Math.abs(b - .075) / .075 * .9 : .1; });
-  // boca: fala ou sorriso
   const fala = s < falaAte || (window.speechSynthesis && speechSynthesis.speaking);
   boca.visible = fala || est.sorr < .3; sorriso.visible = !fala && Math.abs(est.sorr) >= .3;
-  if (fala) boca.scale.y = .25 + Math.abs(Math.sin(s * 13) * Math.sin(s * 5.3)) * .9; else boca.scale.y = lerp(boca.scale.y, .25, .2);
-  sorriso.rotation.z = est.sorr >= 0 ? Math.PI : 0; sorriso.position.y = est.sorr >= 0 ? -.21 : -.28;
+  boca.scale.y = fala ? .25 + Math.abs(Math.sin(s * 13) * Math.sin(s * 5.3)) * .9 : lerp(boca.scale.y, .25, .2);
+  sorriso.rotation.z = est.sorr >= 0 ? Math.PI : 0; sorriso.position.y = est.sorr >= 0 ? P.sorrUp : P.sorrDn;
   R.render(cena, cam);
 }
 const Mestre = {
   async montar(el) {
     if (!el) return;
     try { await carregar(); } catch { return; }
-    if (!R) {
-      try { R = new T.WebGLRenderer({ antialias: true, alpha: true }); } catch { R = null; return; }
-      R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); construir();
-    }
+    if (!R) { try { R = new T.WebGLRenderer({ antialias: true, alpha: true }); } catch { R = null; return; } R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); }
+    if (!cena || R._tipo !== tipo) { CONS[tipo](); R._tipo = tipo; }
     host = el; el.innerHTML = ''; el.append(R.domElement); R._w = 0;
     if (R._parado !== false) { R._parado = false; requestAnimationFrame(quadro); }
   },
+  async tipo(t) { if (!CONS[t]) return; tipo = t; if (R) { CONS[t](); R._tipo = t; R._w = 0; } },
   humor(h, g) {
     const H = { neutro: [0, 0, .5], feliz: [-.15, .05, 1], preocupado: [.3, .02, -1], pensa: [.12, .03, 0], surpreso: [-.05, .08, 0] }[h] || [0, 0, .5];
-    alvo.sob = H[0]; alvo.sobY = H[1]; alvo.sorr = H[2];
-    if (h === 'pensa') alvo.olhar = [.6, .9]; else alvo.olhar = [0, 0];
+    alvo.sob = H[0]; alvo.sobY = H[1]; alvo.sorr = H[2]; alvo.olhar = h === 'pensa' ? [.6, .9] : [0, 0];
     if (g) { gesto = g; gT = performance.now() / 1000; }
     clearTimeout(this._t); this._t = setTimeout(() => { alvo.sob = 0; alvo.sobY = 0; alvo.sorr = .5; }, 5000);
   },
@@ -4151,7 +4182,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.7.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.8.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4166,6 +4197,7 @@ const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };
 const PTL = { K: 'R', Q: 'D', R: 'T', B: 'B', N: 'C' };
 const pt = s => s.replace(/[KQRBN]/g, c => PTL[c]);
 const teu = t => (PECA[t][1] === 'a' ? 'na tua ' : 'no teu ') + PECA[t][0];
+const TUTORES = { dama: { n: 'Dama Leonor', g: 'f', ic: 'wq' }, bispo: { n: 'Bispo Gaspar', g: 'm', ic: 'wb' }, mestre: { n: 'Mestre Gaspar', g: 'm', ic: 'wk' } };
 const AG = {
   mestre: { n: 'Mestre Gaspar', i: '<svg viewBox="0 0 40 40" style="width:30px;height:30px"><use href="#wb"/></svg>', c: 'var(--ag-mestre)' },
   arbitro: { n: 'Juiz Rocha', i: 'R', c: 'var(--ag-arbitro)' },
@@ -4190,7 +4222,7 @@ let players = Object.assign({}, JOGADORES0, store.get('players', {}));
 const S = {
   user: store.get('user', 'nuno'), voz: store.get('voz', true), mode: store.get('mode', 'bot'),
   style: store.get('style', 'faisca'), colorPref: store.get('color', 'w'), auto: store.get('auto', true),
-  elo: store.get('elo', 425), local: store.get('local', { w: 'nuno', b: 'ines' }), rot: store.get('rot', true), touch: store.get('touch', true), coment: store.get('coment', true), tc: store.get('tc', '10+5'), clk: null, dcol: store.get('dcol', 'w'), opp: store.get('opp', 'ines'), dist: null,
+  elo: store.get('elo', 425), local: store.get('local', { w: 'nuno', b: 'ines' }), rot: store.get('rot', true), touch: store.get('touch', true), coment: store.get('coment', true), tc: store.get('tc', '10+5'), tutor: store.get('tutor', 'dama'), clk: null, dcol: store.get('dcol', 'w'), opp: store.get('opp', 'ines'), dist: null,
   game: null, color: 'w', botElo: 425, fens: [], hist: [], sel: null, arrows: [], marks: [], view: null,
   flip: false, think: false, pending: null, hints: 0, used: new Set(), over: false, busy: false, result: null,
   learned: store.get('learned', {})
@@ -4255,14 +4287,15 @@ let vozPT = null;
 const MASC = /duarte|cristiano|ant[oó]nio|daniel|felipe|h[eé]lio|ricardo|fernando|raul|luciano|paulo|jorge|tiago|male|masculin|homem/i, FEM = /joana|catarina|helena|maria|luciana|francisca|raquel|fernanda|in[eê]s|female|feminin|mulher|thalita|leila|vitoria|vitória|camila|yara|brenda|elza|giovanna|manuela/i;
 let vozMasc = false;
 function escolherVoz() { try { const v = speechSynthesis.getVoices().filter(x => x.lang && x.lang.toLowerCase().startsWith('pt')); const pt = x => x.lang.replace('_', '-').toLowerCase() === 'pt-pt';
-  vozPT = v.find(x => pt(x) && MASC.test(x.name)) || v.find(x => MASC.test(x.name)) || v.find(x => pt(x) && !FEM.test(x.name)) || v.find(x => pt(x)) || v[0] || null; vozMasc = !!(vozPT && MASC.test(vozPT.name)); } catch { /* sem voz */ } }
+  const G = (TUTORES[S.tutor] || TUTORES.dama).g, A = G === 'f' ? FEM : MASC, B = G === 'f' ? MASC : FEM;
+  vozPT = v.find(x => pt(x) && A.test(x.name)) || v.find(x => A.test(x.name)) || v.find(x => pt(x) && !B.test(x.name)) || v.find(x => pt(x)) || v[0] || null; vozMasc = !!(vozPT && A.test(vozPT.name)); } catch { /* sem voz */ } }
 if ('speechSynthesis' in window) { escolherVoz(); speechSynthesis.onvoiceschanged = escolherVoz; }
 function speak(t) {
   if (!S.voz || !('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g, '').replace(/[«»]/g, ''));
-    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = vozMasc ? .95 : .55;
+    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = (TUTORES[S.tutor] || TUTORES.dama).g === 'f' ? (vozMasc ? 1.05 : 1.35) : (vozMasc ? .95 : .55);
     speechSynthesis.speak(u);
   } catch { /* sem voz */ }
 }
@@ -4289,7 +4322,13 @@ function show(v) {
   $('#nav-regras').setAttribute('aria-current', v === 'regras');
   if (v === 'evolucao') renderEvolucao();
 }
+function aplicarTutor() {
+  const t = TUTORES[S.tutor] || TUTORES.dama; AG.mestre.n = t.n; AG.mestre.i = `<svg viewBox="0 0 40 40" style="width:30px;height:30px"><use href="#${t.ic}"/></svg>`;
+  const l = $('#ladder-lbl'); if (l) l.textContent = t.n + ' · ajuda em degraus';
+  Mestre.tipo(S.tutor); escolherVoz();
+}
 function header() {
+  const ts = $('#tutor'); if (ts) { ts.value = S.tutor; ts.onchange = () => { S.tutor = ts.value; save(); aplicarTutor(); Mestre.humor('feliz', 'aceno'); const t = TUTORES[S.tutor]; speak(`Olá! Sou ${t.n === 'Dama Leonor' ? 'a' : 'o'} ${t.n}. Vamos aprender xadrez juntos.`); Mestre.fala('x'.repeat(50)); }; }
   $('#ver').textContent = 'v' + VERSAO;
   const p = players[S.user];
   $('#who').innerHTML = `Utilizador: <b>${p.nome}</b> · ${escalao(p.rating)} ${Math.round(p.rating)}`;
@@ -4298,7 +4337,7 @@ function header() {
 function save() {
   store.set('players', players); store.set('user', S.user); store.set('voz', S.voz); store.set('mode', S.mode);
   store.set('style', S.style); store.set('color', S.colorPref); store.set('auto', S.auto); store.set('elo', S.elo);
-  store.set('local', S.local); store.set('rot', S.rot); store.set('touch', S.touch); store.set('coment', S.coment); store.set('tc', S.tc); store.set('dcol', S.dcol); store.set('opp', S.opp); store.set('learned', S.learned);
+  store.set('local', S.local); store.set('rot', S.rot); store.set('touch', S.touch); store.set('coment', S.coment); store.set('tc', S.tc); store.set('tutor', S.tutor); store.set('dcol', S.dcol); store.set('opp', S.opp); store.set('learned', S.learned);
 }
 function seg(id, cur, fn) { $$('#' + id + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === cur); b.onclick = () => { fn(b.dataset.v); renderSetup(); }; }); }
 function autoElo() { return Math.max(400, Math.min(2500, Math.round((players[S.user].rating + 25) / 25) * 25)); }
@@ -4920,7 +4959,7 @@ function passo() {
   const { it } = LS.fila[LS.pos]; LS.sel = null; LS.marks = new Set(); LS.res = null; LS.fen = it.fen || null; LS.last = null;
   const pct = Math.round(LS.pos / LS.fila.length * 100);
   v.innerHTML = `<div class="lesson"><div class="ltop"><button class="btn" id="l-sair">✕ Sair</button><div class="bar lbar"><i style="width:${pct}%"></i></div></div>
-    <div class="lmsg"><div class="mav sm" id="l-av"></div><div class="bub"><span class="nm">Mestre Gaspar · ${LS.L.t}</span><div id="l-q"></div></div></div>
+    <div class="lmsg"><div class="mav sm" id="l-av"></div><div class="bub"><span class="nm">${AG.mestre.n} · ${LS.L.t}</span><div id="l-q"></div></div></div>
     <div id="l-area"></div><div id="l-fb" class="fb" hidden></div><div class="controls" id="l-btns"></div></div>`;
   $('#l-sair').onclick = () => { LS = null; renderPercurso(); };
   Mestre.montar($('#l-av')); desenharItem(); Mestre.humor(it.t === 'info' ? 'neutro' : it.t === 'quiz' ? 'pensa' : 'neutro', it.t === 'info' ? 'explica' : it.t === 'quiz' ? 'pensa' : 'aponta'); Mestre.fala($('#l-q').textContent); speak($('#l-q').textContent);
@@ -5037,7 +5076,7 @@ $('#b-draw').onclick = async () => {
 $('#b-new').onclick = () => show('setup');
 
 /* ---------- arranque ---------- */
-header(); renderSetup(); if (fam) ligar(); if (!abrirLink()) show('setup');
+aplicarTutor(); header(); renderSetup(); if (fam) ligar(); if (!abrirLink()) show('setup');
 window.addEventListener('hashchange', () => { abrirLink(); });
 
 </script>
