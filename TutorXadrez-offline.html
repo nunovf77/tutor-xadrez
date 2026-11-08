@@ -153,6 +153,10 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .mav canvas{width:100%;height:100%;display:block}
 .mav.sm{height:140px}
 .lmsg{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;align-items:center}
+.clock{display:flex;justify-content:space-between;align-items:center;max-width:560px;margin:6px 0;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted)}
+.clock b{font-family:var(--f-mono);font-size:1.35rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.clock.on{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)} .clock.on b{color:var(--accent)}
+.clock.low b{color:var(--bad)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -219,12 +223,15 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
           <button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Ao acaso</button>
         </div></div>
     </div>
+    <div class="card"><h2>Relógio</h2><div class="field"><label for="s-tc">Ritmo de jogo (minutos + segundos por lance)</label><select id="s-tc"><option value="0">Sem relógio</option><option value="5+3">5 + 3 (rápido)</option><option value="10+5">10 + 5</option><option value="15+10">15 + 10 (recomendado para aprender)</option><option value="30+0">30 + 0</option><option value="60+30">60 + 30 (clássico)</option></select></div><p class="note">Contra o Oponente e no mesmo aparelho. Quem esgota o tempo perde, exceto se o adversário não tiver material para dar mate (empate, FIDE 6.9). À distância não há relógio.</p></div>
     <div><button class="btn pri" id="start">Começar partida</button></div>
   </section>
 
   <section id="v-play" class="play" hidden>
     <div>
+      <div class="clock" id="clk-top" hidden></div>
       <div class="boardwrap"><div id="board" role="grid" aria-label="Tabuleiro"></div><svg id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg><div class="promo" id="promo" hidden></div></div>
+      <div class="clock" id="clk-bot" hidden></div>
       <div class="controls">
         <button class="btn" id="b-first" aria-label="Início">⏮</button>
         <button class="btn" id="b-prev" aria-label="Lance anterior">◀</button>
@@ -4026,8 +4033,8 @@ const CURSO = [
   ] }
 ];
 
-/*! Tutor de Xadrez — Avatar 3D do Mestre Gaspar — © 2026 Nuno Freitas. Todos os direitos reservados. Ref. TX-NF-2026-3FCA48 */
-// Personagem original (mestre de xadrez idoso, boina, óculos, barba), animado em three.js (MIT).
+/*! Tutor de Xadrez — Avatar 3D do Mestre Gaspar (bispo falante) — © 2026 Nuno Freitas. Todos os direitos reservados. Ref. TX-NF-2026-3FCA48 */
+// Personagem original: um bispo de xadrez falante, de óculos, animado em three.js (MIT).
 let T = null, R = null, cena, cam, raiz, cabeca, olhos = [], palp = [], sobr = [], boca, sorriso, bracoD, bracoE, corpo;
 let host = null, alvo = { sob: 0, sobY: 0, sorr: 0, cabX: 0, cabY: 0, olhar: [0, 0] }, gesto = null, gT = 0, falaAte = 0, prox = 2;
 const est = { sob: 0, sobY: 0, sorr: 0, cabX: 0, cabY: 0, olhar: [0, 0] };
@@ -4039,52 +4046,50 @@ async function carregar() {
 function mat(c, r = .6) { return new T.MeshStandardMaterial({ color: c, roughness: r, metalness: 0 }); }
 function construir() {
   cena = new T.Scene();
-  cam = new T.PerspectiveCamera(28, 1, .1, 50); cam.position.set(0, 1.55, 4.6); cam.lookAt(0, 1.35, 0);
-  cena.add(new T.HemisphereLight(0xffffff, 0x445566, 1.6));
-  const d = new T.DirectionalLight(0xffffff, 1.6); d.position.set(2, 4, 5); cena.add(d);
+  cam = new T.PerspectiveCamera(28, 1, .1, 50); cam.position.set(0, 1.2, 6); cam.lookAt(0, 1.1, 0);
+  cena.add(new T.HemisphereLight(0xffffff, 0x445566, 1.5));
+  const d = new T.DirectionalLight(0xffffff, 1.7); d.position.set(2, 4, 5); cena.add(d);
+  const d2 = new T.DirectionalLight(0x9fe0d5, .6); d2.position.set(-3, 2, -2); cena.add(d2);
   raiz = new T.Group(); cena.add(raiz);
-  const pele = mat(0xE9C3A0), branco = mat(0xF2F2EE, .9), teal = mat(0x0F6E63), escuro = mat(0x16302C), ouro = mat(0xD4A017, .35);
-  // corpo em forma de peça de xadrez (rei), com orla dourada
-  const perfil = [[0, 0], [1.05, 0], [1.05, .12], [.85, .22], [.8, .3], [.62, .9], [.55, 1.05], [.48, 1.12], [0, 1.12]].map(([x, y]) => new T.Vector2(x, y));
-  corpo = new T.Mesh(new T.LatheGeometry(perfil, 40), teal); corpo.position.y = -.05; raiz.add(corpo);
-  const orla = new T.Mesh(new T.TorusGeometry(1.0, .05, 10, 40), ouro); orla.rotation.x = Math.PI / 2; orla.position.y = .1; raiz.add(orla);
-  const gola = new T.Mesh(new T.TorusGeometry(.48, .06, 10, 40), ouro); gola.rotation.x = Math.PI / 2; gola.position.y = 1.07; raiz.add(gola);
-  // braços (pivot no ombro)
-  const braco = lado => { const g = new T.Group(); g.position.set(.72 * lado, 1.0, .05); const b = new T.Mesh(new T.CylinderGeometry(.12, .15, .75, 14), mat(0x0B5A51)); b.position.y = -.37; g.add(b); const m = new T.Mesh(new T.SphereGeometry(.13, 16, 12), pele); m.position.y = -.78; g.add(m); g.rotation.z = .25 * lado; raiz.add(g); return g; };
+  const marfim = mat(0xF4EBDD, .45), teal = mat(0x0F6E63, .5), escuro = mat(0x2B2B2B, .2), ouro = mat(0xD4A017, .3);
+  // corpo: base e haste de um bispo de xadrez
+  const perfil = [[0, 0], [.78, 0], [.78, .1], [.64, .18], [.62, .26], [.44, .34], [.32, .5], [.27, .82], [.3, .9], [0, .9]].map(([x, y]) => new T.Vector2(x, y));
+  corpo = new T.Mesh(new T.LatheGeometry(perfil, 48), marfim); raiz.add(corpo);
+  const anel = (r, y, m, g = .045) => { const o = new T.Mesh(new T.TorusGeometry(r, g, 12, 48), m); o.rotation.x = Math.PI / 2; o.position.y = y; raiz.add(o); return o; };
+  anel(.7, .14, teal, .05); anel(.45, .33, ouro);
+  const colar = new T.Mesh(new T.CylinderGeometry(.46, .42, .12, 40), teal); colar.position.y = .94; raiz.add(colar);
+  anel(.46, 1.0, ouro, .03);
+  // braços pequenos (pivot no colar)
+  const braco = lado => { const g = new T.Group(); g.position.set(.36 * lado, .92, .05); const b = new T.Mesh(new T.CapsuleGeometry(.07, .42, 6, 12), marfim); b.position.y = -.28; g.add(b); const m = new T.Mesh(new T.SphereGeometry(.1, 16, 12), marfim); m.position.y = -.56; g.add(m); g.rotation.z = .35 * lado; raiz.add(g); return g; };
   bracoD = braco(-1); bracoE = braco(1);
-  // cabeça
-  cabeca = new T.Group(); cabeca.position.y = 1.62; raiz.add(cabeca);
-  cabeca.add(new T.Mesh(new T.SphereGeometry(.5, 32, 24), pele));
-  const nariz = new T.Mesh(new T.SphereGeometry(.08, 16, 12), mat(0xDDA884)); nariz.position.set(0, -.02, .5); nariz.scale.set(1, 1.2, 1); cabeca.add(nariz);
-  const orelha = l => { const o = new T.Mesh(new T.SphereGeometry(.1, 12, 10), pele); o.position.set(.49 * l, 0, 0); o.scale.set(.5, 1, .8); cabeca.add(o); }; orelha(1); orelha(-1);
-  // cabelo e barba brancos
-  const cab = new T.Mesh(new T.SphereGeometry(.52, 24, 16, 0, Math.PI * 2, Math.PI * .45, Math.PI * .4), branco); cab.rotation.x = .25; cabeca.add(cab);
-  const barbaP = [[0, 0], [.32, .05], [.4, .22], [.36, .4], [0, .42]].map(([x, y]) => new T.Vector2(x, y));
-  const barba = new T.Mesh(new T.LatheGeometry(barbaP, 24), branco); barba.position.set(0, -.62, .18); barba.scale.set(1, 1, .75); cabeca.add(barba);
-  const big = l => { const b = new T.Mesh(new T.CapsuleGeometry(.045, .16, 6, 10), branco); b.position.set(.1 * l, -.17, .47); b.rotation.z = Math.PI / 2 + .35 * l; cabeca.add(b); }; big(1); big(-1);
-  // boca: elipse (fala) + arco (sorriso)
-  boca = new T.Mesh(new T.SphereGeometry(.07, 16, 10), mat(0x5A2A27)); boca.position.set(0, -.28, .44); boca.scale.set(1.2, .25, .5); cabeca.add(boca);
-  sorriso = new T.Mesh(new T.TorusGeometry(.1, .018, 8, 20, Math.PI), mat(0x5A2A27)); sorriso.position.set(0, -.24, .45); sorriso.rotation.z = Math.PI; cabeca.add(sorriso);
-  // olhos, pálpebras e sobrancelhas
+  // cabeça: mitra do bispo, com rosto
+  cabeca = new T.Group(); cabeca.position.y = 1.5; raiz.add(cabeca);
+  const mitra = new T.Mesh(new T.SphereGeometry(.5, 40, 28), marfim); mitra.scale.set(.86, 1.12, .86); cabeca.add(mitra);
+  const ponta = new T.Mesh(new T.ConeGeometry(.3, .34, 32), marfim); ponta.position.y = .58; cabeca.add(ponta);
+  const bola = new T.Mesh(new T.SphereGeometry(.11, 20, 14), ouro); bola.position.y = .8; cabeca.add(bola);
+  const corte = new T.Mesh(new T.BoxGeometry(.05, .5, .12), teal); corte.position.set(.14, .36, .27); corte.rotation.set(-.55, 0, -.6); cabeca.add(corte);
+  // olhos, pálpebras, sobrancelhas, óculos
   [-1, 1].forEach(l => {
-    const g = new T.Group(); g.position.set(.17 * l, .1, .42); cabeca.add(g);
+    const g = new T.Group(); g.position.set(.15 * l, -.02, .38); cabeca.add(g);
     g.add(new T.Mesh(new T.SphereGeometry(.085, 16, 12), mat(0xFFFFFF, .3)));
-    const p = new T.Mesh(new T.SphereGeometry(.042, 12, 10), mat(0x2B2B2B, .2)); p.position.z = .06; g.add(p); olhos.push(p);
-    const pp = new T.Mesh(new T.SphereGeometry(.09, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), pele); pp.rotation.x = -Math.PI / 2 + .2; pp.scale.y = .1; g.add(pp); palp.push(pp);
-    const s = new T.Mesh(new T.BoxGeometry(.17, .04, .04), branco); s.position.set(.17 * l, .25, .45); cabeca.add(s); sobr.push(s);
-    const aro = new T.Mesh(new T.TorusGeometry(.12, .014, 8, 24), ouro); aro.position.set(.17 * l, .1, .5); cabeca.add(aro);
+    const p = new T.Mesh(new T.SphereGeometry(.045, 12, 10), escuro); p.position.z = .06; g.add(p); olhos.push(p);
+    const brilho = new T.Mesh(new T.SphereGeometry(.013, 8, 6), mat(0xFFFFFF, .1)); brilho.position.set(.015, .02, .1); g.add(brilho);
+    const pp = new T.Mesh(new T.SphereGeometry(.09, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), marfim); pp.rotation.x = -Math.PI / 2 + .2; pp.scale.y = .1; g.add(pp); palp.push(pp);
+    const s = new T.Mesh(new T.CapsuleGeometry(.022, .12, 4, 8), mat(0x6B4F3A, .7)); s.rotation.z = Math.PI / 2; s.position.set(.15 * l, .14, .42); cabeca.add(s); sobr.push(s);
+    const aro = new T.Mesh(new T.TorusGeometry(.115, .013, 8, 28), ouro); aro.position.set(.15 * l, -.02, .46); cabeca.add(aro);
   });
-  const ponte = new T.Mesh(new T.CylinderGeometry(.012, .012, .1, 6), ouro); ponte.rotation.z = Math.PI / 2; ponte.position.set(0, .12, .52); cabeca.add(ponte);
-  // boina
-  const boina = new T.Mesh(new T.SphereGeometry(.5, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), escuro); boina.position.y = .22; boina.scale.set(1.08, .45, 1.08); boina.rotation.z = -.12; cabeca.add(boina);
-  const pe = new T.Mesh(new T.CylinderGeometry(.03, .03, .08, 8), escuro); pe.position.set(-.02, .46, 0); cabeca.add(pe);
+  const ponte = new T.Mesh(new T.CylinderGeometry(.011, .011, .08, 6), ouro); ponte.rotation.z = Math.PI / 2; ponte.position.set(0, -.01, .48); cabeca.add(ponte);
+  const face = new T.Mesh(new T.SphereGeometry(.06, 12, 10), mat(0xF0C9B6, .7)); [-1, 1].forEach(l => { const f = face.clone(); f.position.set(.25 * l, -.17, .34); f.scale.set(1, .6, .4); cabeca.add(f); });
+  // boca
+  boca = new T.Mesh(new T.SphereGeometry(.07, 16, 10), mat(0x7A2E2A)); boca.position.set(0, -.25, .39); boca.scale.set(1.1, .25, .5); cabeca.add(boca);
+  sorriso = new T.Mesh(new T.TorusGeometry(.09, .017, 8, 20, Math.PI), mat(0x7A2E2A)); sorriso.position.set(0, -.21, .41); sorriso.rotation.z = Math.PI; cabeca.add(sorriso);
 }
 const lerp = (a, b, k) => a + (b - a) * k;
 function quadro(t) {
   if (!R || !host || !host.isConnected || document.hidden) { R && (R._parado = true); return; }
   requestAnimationFrame(quadro);
   const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
-  if (R._w !== w || R._h !== h) { R.setSize(w, h, false); cam.aspect = w / h; cam.position.z = w / h < 1.1 ? 5.6 : 4.6; cam.updateProjectionMatrix(); R._w = w; R._h = h; }
+  if (R._w !== w || R._h !== h) { R.setSize(w, h, false); cam.aspect = w / h; cam.position.z = w / h < 1.1 ? 6.8 : 6; cam.updateProjectionMatrix(); R._w = w; R._h = h; }
   const s = t / 1000, k = .12;
   // respiração e balanço
   raiz.position.y = Math.sin(s * 1.6) * .02; corpo.scale.set(1 + Math.sin(s * 1.6) * .01, 1, 1);
@@ -4107,7 +4112,7 @@ function quadro(t) {
   bracoD.rotation.x = lerp(bracoD.rotation.x, bDx, .12); bracoE.rotation.x = lerp(bracoE.rotation.x, bEx, .12);
   cabeca.rotation.set(rx, ry, rz);
   // sobrancelhas
-  sobr.forEach((b, i) => { const l = i ? 1 : -1; b.rotation.z = est.sob * l; b.position.y = .25 + est.sobY; });
+  sobr.forEach((b, i) => { const l = i ? 1 : -1; b.rotation.z = est.sob * l; b.position.y = .14 + est.sobY; });
   // olhar e piscar
   olhos.forEach(o => { o.position.x = est.olhar[0] * .03; o.position.y = est.olhar[1] * .03; });
   if (s > prox) { prox = s + 2.5 + Math.random() * 3; palp.forEach(p => { p._b = s; }); if (Math.random() < .3) alvo.olhar = [Math.random() * 2 - 1, Math.random() - .3]; }
@@ -4116,7 +4121,7 @@ function quadro(t) {
   const fala = s < falaAte || (window.speechSynthesis && speechSynthesis.speaking);
   boca.visible = fala || est.sorr < .3; sorriso.visible = !fala && Math.abs(est.sorr) >= .3;
   if (fala) boca.scale.y = .25 + Math.abs(Math.sin(s * 13) * Math.sin(s * 5.3)) * .9; else boca.scale.y = lerp(boca.scale.y, .25, .2);
-  sorriso.rotation.z = est.sorr >= 0 ? Math.PI : 0; sorriso.position.y = est.sorr >= 0 ? -.24 : -.31;
+  sorriso.rotation.z = est.sorr >= 0 ? Math.PI : 0; sorriso.position.y = est.sorr >= 0 ? -.21 : -.28;
   R.render(cena, cam);
 }
 const Mestre = {
@@ -4146,7 +4151,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.6.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.7.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4162,7 +4167,7 @@ const PTL = { K: 'R', Q: 'D', R: 'T', B: 'B', N: 'C' };
 const pt = s => s.replace(/[KQRBN]/g, c => PTL[c]);
 const teu = t => (PECA[t][1] === 'a' ? 'na tua ' : 'no teu ') + PECA[t][0];
 const AG = {
-  mestre: { n: 'Mestre Gaspar', i: 'G', c: 'var(--ag-mestre)' },
+  mestre: { n: 'Mestre Gaspar', i: '<svg viewBox="0 0 40 40" style="width:30px;height:30px"><use href="#wb"/></svg>', c: 'var(--ag-mestre)' },
   arbitro: { n: 'Juiz Rocha', i: 'R', c: 'var(--ag-arbitro)' },
   analista: { n: 'Lupa', i: 'L', c: 'var(--ag-analista)' },
   faisca: { n: 'Faísca', i: 'F', c: 'var(--ag-faisca)' },
@@ -4185,7 +4190,7 @@ let players = Object.assign({}, JOGADORES0, store.get('players', {}));
 const S = {
   user: store.get('user', 'nuno'), voz: store.get('voz', true), mode: store.get('mode', 'bot'),
   style: store.get('style', 'faisca'), colorPref: store.get('color', 'w'), auto: store.get('auto', true),
-  elo: store.get('elo', 425), local: store.get('local', { w: 'nuno', b: 'ines' }), rot: store.get('rot', true), touch: store.get('touch', true), coment: store.get('coment', true), dcol: store.get('dcol', 'w'), opp: store.get('opp', 'ines'), dist: null,
+  elo: store.get('elo', 425), local: store.get('local', { w: 'nuno', b: 'ines' }), rot: store.get('rot', true), touch: store.get('touch', true), coment: store.get('coment', true), tc: store.get('tc', '10+5'), clk: null, dcol: store.get('dcol', 'w'), opp: store.get('opp', 'ines'), dist: null,
   game: null, color: 'w', botElo: 425, fens: [], hist: [], sel: null, arrows: [], marks: [], view: null,
   flip: false, think: false, pending: null, hints: 0, used: new Set(), over: false, busy: false, result: null,
   learned: store.get('learned', {})
@@ -4247,14 +4252,17 @@ function pvSan(fen, pv, n) {
 
 /* ---------- voz e conversa dos agentes ---------- */
 let vozPT = null;
-function escolherVoz() { try { const v = speechSynthesis.getVoices(); vozPT = v.find(x => x.lang === 'pt-PT') || v.find(x => x.lang && x.lang.startsWith('pt')) || null; } catch { /* sem voz */ } }
+const MASC = /duarte|cristiano|ant[oó]nio|daniel|felipe|h[eé]lio|ricardo|fernando|raul|luciano|paulo|jorge|tiago|male|masculin|homem/i, FEM = /joana|catarina|helena|maria|luciana|francisca|raquel|fernanda|in[eê]s|female|feminin|mulher|thalita|leila|vitoria|vitória|camila|yara|brenda|elza|giovanna|manuela/i;
+let vozMasc = false;
+function escolherVoz() { try { const v = speechSynthesis.getVoices().filter(x => x.lang && x.lang.toLowerCase().startsWith('pt')); const pt = x => x.lang.replace('_', '-').toLowerCase() === 'pt-pt';
+  vozPT = v.find(x => pt(x) && MASC.test(x.name)) || v.find(x => MASC.test(x.name)) || v.find(x => pt(x) && !FEM.test(x.name)) || v.find(x => pt(x)) || v[0] || null; vozMasc = !!(vozPT && MASC.test(vozPT.name)); } catch { /* sem voz */ } }
 if ('speechSynthesis' in window) { escolherVoz(); speechSynthesis.onvoiceschanged = escolherVoz; }
 function speak(t) {
   if (!S.voz || !('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g, '').replace(/[«»]/g, ''));
-    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = 1.02;
+    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = vozMasc ? .95 : .55;
     speechSynthesis.speak(u);
   } catch { /* sem voz */ }
 }
@@ -4290,7 +4298,7 @@ function header() {
 function save() {
   store.set('players', players); store.set('user', S.user); store.set('voz', S.voz); store.set('mode', S.mode);
   store.set('style', S.style); store.set('color', S.colorPref); store.set('auto', S.auto); store.set('elo', S.elo);
-  store.set('local', S.local); store.set('rot', S.rot); store.set('touch', S.touch); store.set('coment', S.coment); store.set('dcol', S.dcol); store.set('opp', S.opp); store.set('learned', S.learned);
+  store.set('local', S.local); store.set('rot', S.rot); store.set('touch', S.touch); store.set('coment', S.coment); store.set('tc', S.tc); store.set('dcol', S.dcol); store.set('opp', S.opp); store.set('learned', S.learned);
 }
 function seg(id, cur, fn) { $$('#' + id + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === cur); b.onclick = () => { fn(b.dataset.v); renderSetup(); }; }); }
 function autoElo() { return Math.max(400, Math.min(2500, Math.round((players[S.user].rating + 25) / 25) * 25)); }
@@ -4322,6 +4330,7 @@ function renderSetup() {
   $('#s-elo-v').textContent = S.elo + ' · ' + escalao(S.elo);
   r.oninput = () => { S.elo = +r.value; $('#s-elo-v').textContent = S.elo + ' · ' + escalao(S.elo); };
   a.onchange = () => { S.auto = a.checked; renderSetup(); };
+  $('#s-tc').value = S.tc; $('#s-tc').onchange = e => { S.tc = e.target.value; save(); };
   $('#s-coment').checked = S.coment; $('#s-coment').onchange = e => { S.coment = e.target.checked; save(); };
   save();
 }
@@ -4386,10 +4395,44 @@ function renderStatus() {
   $('#b-undo').disabled = S.mode !== 'bot' || S.busy || S.over || S.hist.length < 2;
   $('#b-resign').disabled = S.over; $('#b-draw').disabled = S.over || S.busy;
 }
-function renderAll() { renderBoard(); renderMoves(); renderStatus(); }
+function renderAll() { renderBoard(); renderMoves(); renderStatus(); renderRelogio(); }
+/* ---------- relógio (FIDE art. 6) ---------- */
+function relogioNovo() {
+  S.clk = null;
+  if (S.mode === 'dist' || !S.tc || S.tc === '0') return;
+  const [mn, inc] = S.tc.split('+').map(Number);
+  S.clk = { w: mn * 60000, b: mn * 60000, inc: inc * 1000, on: true, last: performance.now(), pausa: false };
+}
+function relogioTick() {
+  const c = S.clk; if (!c) return; const t = performance.now();
+  if (c.on && !c.pausa && !S.over && S.game) { c[S.game.turn()] -= t - c.last; }
+  c.last = t;
+  const lado = S.game && S.game.turn();
+  if (c.on && !S.over && lado && c[lado] <= 0) {
+    c[lado] = 0; c.on = false;
+    const op = lado === 'w' ? 'b' : 'w', mat = x => S.game.board().flat().filter(p => p && p.color === x && p.type !== 'k');
+    const mo = mat(op), sem = mo.length === 0 || (mo.length === 1 && 'nb'.includes(mo[0].type) && mat(lado).length === 0);
+    if (sem) terminar('½-½', 'Tempo esgotado, mas o adversário não tem material para dar mate: empate (FIDE 6.9).');
+    else terminar(op === 'w' ? '1-0' : '0-1', `Tempo esgotado das ${lado === 'w' ? 'brancas' : 'pretas'}: ganham as ${op === 'w' ? 'brancas' : 'pretas'} (FIDE 6.9).`);
+  }
+}
+const fmt = ms => { ms = Math.max(0, ms); const s = Math.floor(ms / 1000), m = Math.floor(s / 60); return ms < 10000 ? `0:${String(s).padStart(2, '0')}.${Math.floor(ms % 1000 / 100)}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
+function renderRelogio() {
+  const top = $('#clk-top'), bot = $('#clk-bot'); if (!top) return;
+  const on = !!(S.clk && S.game); top.hidden = bot.hidden = !on; if (!on) return;
+  const o = orient(), cima = o === 'w' ? 'b' : 'w', baixo = o;
+  const nome = c => S.mode === 'bot' ? (c === S.color ? players[S.user].nome : AG[S.style].n) : players[S.local[c]]?.nome;
+  [[top, cima], [bot, baixo]].forEach(([e, c]) => {
+    const ms = S.clk[c], ativo = S.clk.on && !S.over && S.game.turn() === c;
+    e.className = 'clock' + (ativo ? ' on' : '') + (ms < 30000 ? ' low' : '');
+    e.innerHTML = `<span>${nome(c) || ''} · ${c === 'w' ? 'brancas' : 'pretas'}</span><b>${fmt(ms)}</b>`;
+  });
+}
+setInterval(() => { if (S.clk && !$('#v-play').hidden) { relogioTick(); renderRelogio(); } else if (S.clk) relogioTick(); }, 200);
 
 /* ---------- jogo ---------- */
 function reset(g) {
+  S.clk = null;
   S.game = g || new Chess(); S.fens = [new Chess().fen()]; S.hist = [];
   const c = new Chess(); for (const m of S.game.history({ verbose: true })) { S.hist.push(c.move(m.san)); S.fens.push(c.fen()); }
   S.sel = null; S.arrows = []; S.marks = []; S.view = null; S.flip = false; S.think = false; S.pending = null; S.hints = 0; S.used = new Set(); S.over = false; S.busy = false; S.result = null;
@@ -4400,6 +4443,7 @@ function newGame() {
   S.flip = false; S.think = false; S.pending = null; S.hints = 0; S.used = new Set(); S.over = false; S.busy = false; S.result = null;
   S.color = S.colorPref === 'r' ? (Math.random() < .5 ? 'w' : 'b') : S.colorPref;
   S.botElo = S.auto ? autoElo() : S.elo;
+  relogioNovo();
   if (S.mode === 'dist') { S.color = S.dcol; S.dist = { id: Math.random().toString(16).slice(2, 8).toUpperCase(), w: S.dcol === 'w' ? S.user : S.opp, b: S.dcol === 'w' ? S.opp : S.user, offer: null }; }
   $('#feed').innerHTML = ''; $('#ana').hidden = true;
   eng.newGame(); show('play'); renderAll();
@@ -4469,7 +4513,8 @@ function arbitroEvento(r) {
   if (r.flags.includes('p')) once('promo', `Promoção! O peão chegou à última fila e passou a ser ${PECA[r.promotion][1] === 'a' ? 'uma' : 'um'} ${PECA[r.promotion][0]}.`);
 }
 function play(m) {
-  const r = S.game.move(m);
+  const mover = S.game.turn(); const r = S.game.move(m);
+  if (S.clk) { relogioTick(); S.clk[mover] += S.clk.inc; S.clk.last = performance.now(); }
   S.hist.push(r); S.fens.push(S.game.fen()); S.arrows = []; S.marks = []; S.think = false; S.pending = null; S.used = new Set();
   arbitroEvento(r); renderAll();
   if (S.mode === 'dist' && S.dist.offer && S.dist.offer !== S.color) S.dist.offer = null;
@@ -4479,6 +4524,7 @@ function play(m) {
   if (S.mode === 'bot' && S.game.turn() !== S.color) {
     const prev = S.fens[S.fens.length - 2], cur = S.game.fen(); S.busy = true; renderStatus();
     comentar(prev, cur, r).then(x => {
+      if (S.clk) { S.clk.pausa = false; S.clk.last = performance.now(); }
       S.busy = false;
       if (x === 'undo') { S.game.undo(); S.hist.pop(); S.fens.pop(); S.hints++; S.arrows = []; renderAll(); Mestre.humor('pensa', 'pensa'); say('mestre', 'Boa decisão. Olha outra vez: o que ataca o adversário e o que ficaria desprotegido?'); return; }
       botTurn();
@@ -4492,7 +4538,7 @@ async function comentar(prev, cur, r) {
     const c = new Chess(cur); let depois;
     if (c.isCheckmate()) depois = 100000; else if (c.isGameOver()) depois = 0; else { const b = await eng.analyse(cur, { depth: 9, multipv: 1 }); depois = b.lines[0] ? -val(b.lines[0]) : 0; }
     const perda = Math.max(0, clamp(val(a.lines[0])) - clamp(depois)), melhor = a.lines[0].move === r.from + r.to + (r.promotion || '');
-    if (perda >= 250) { Mestre.humor('preocupado', 'abana'); return await new Promise(res => say('mestre', `Hmm… ${sanH(r.san)} deixa-te em dificuldades: perdes material ou a vantagem. Um mestre pararia para pensar. Queres voltar atrás? (conta como ajuda)`, [['Voltar atrás', () => res('undo'), true], ['Continuar assim', () => res(null)]])); }
+    if (perda >= 250) { Mestre.humor('preocupado', 'abana'); if (S.clk) { relogioTick(); S.clk.pausa = true; } return await new Promise(res => say('mestre', `Hmm… ${sanH(r.san)} deixa-te em dificuldades: perdes material ou a vantagem. Um mestre pararia para pensar. Queres voltar atrás? (conta como ajuda)`, [['Voltar atrás', () => res('undo'), true], ['Continuar assim', () => res(null)]])); }
     if (perda >= 90) { Mestre.humor('pensa'); say('mestre', `${sanH(r.san)} é jogável, mas havia melhor. No fim, a Lupa mostra-te o quê.`); return null; }
     if (melhor && Math.random() < .5) { Mestre.humor('feliz', 'aceno'); say('mestre', ['Excelente lance!', 'Isso mesmo: é o que eu jogaria.', 'Muito bem visto.'][Math.floor(Math.random() * 3)]); }
   } catch { /* */ }
@@ -4509,9 +4555,10 @@ function fim(o) {
   terminar(res, txt, o); return true;
 }
 function terminar(res, txt, o = {}) {
+  if (S.clk) S.clk.on = false;
   S.over = true; S.busy = false; S.result = txt.split(':')[0].replace(/\.$/, '');
   say('arbitro', txt);
-  const rec = { d: new Date().toISOString(), modo: S.mode, res, pgn: S.game.pgn(), ajudas: S.hints };
+  const rec = { d: new Date().toISOString(), modo: S.mode, ritmo: S.clk ? S.tc : null, res, pgn: S.game.pgn(), ajudas: S.hints };
   if (S.mode === 'bot') {
     const p = players[S.user], sc = res === '½-½' ? .5 : ((res === '1-0') === (S.color === 'w') ? 1 : 0);
     const E = 1 / (1 + Math.pow(10, (S.botElo - p.rating) / 400)), K = p.jogos < 30 ? 40 : 20;
