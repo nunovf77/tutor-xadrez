@@ -176,7 +176,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
     <button id="nav-evolucao">Evolução</button>
     <button id="nav-regras">Regras</button>
   </nav>
-  <label class="toggle" for="tutor">Tutor <select id="tutor" aria-label="Tutor virtual"><option value="dama">Dama Leonor · voz feminina</option><option value="bispo">Bispo Gaspar · voz masculina</option><option value="mestre">Mestre Gaspar · voz masculina</option></select></label>
+  <label class="toggle" for="tutor">Tutor <select id="tutor" aria-label="Tutor virtual"><option value="dama">Dama Leonor</option><option value="bispo">Bispo Gaspar</option><option value="mestre">Mestre Gaspar</option></select></label>
   <button class="toggle" id="voz" aria-pressed="true">Voz: ligada</button>
 </header>
 
@@ -4182,7 +4182,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.9.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.10.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4287,12 +4287,11 @@ let vozPT = null;
 const MASC = /duarte|cristiano|ant[oó]nio|daniel|felipe|h[eé]lio|ricardo|fernando|raul|luciano|paulo|jorge|tiago|male|masculin|homem/i, FEM = /joana|catarina|helena|maria|luciana|francisca|raquel|fernanda|in[eê]s|female|feminin|mulher|thalita|leila|vitoria|vitória|camila|yara|brenda|elza|giovanna|manuela/i;
 let vozMasc = false;
 function escolherVoz() { try { const v = speechSynthesis.getVoices().filter(x => x.lang && x.lang.toLowerCase().startsWith('pt')); const pt = x => x.lang.replace('_', '-').toLowerCase() === 'pt-pt';
-  const G = (TUTORES[S.tutor] || TUTORES.dama).g, A = G === 'f' ? FEM : MASC, B = G === 'f' ? MASC : FEM;
-  vozPT = v.find(x => pt(x) && A.test(x.name)) || v.find(x => A.test(x.name)) || v.find(x => pt(x) && !B.test(x.name)) || v.find(x => pt(x)) || v[0] || null; vozMasc = !!(vozPT && A.test(vozPT.name)); } catch { /* sem voz */ } }
+  vozPT = v.find(x => pt(x)) || v[0] || null; vozMasc = false; } catch { /* sem voz */ } }
 if ('speechSynthesis' in window) { escolherVoz(); speechSynthesis.onvoiceschanged = escolherVoz; }
 const VOZ_M = 'pt_PT-tugão-medium';
 let piperOk = store.get('piper', false), audioAtual = null, ttsMod = null;
-async function ttsLib() { if (!ttsMod) ttsMod = await import('./tts.js'); return ttsMod; }
+async function ttsLib() { throw new Error('sem tts'); }
 const precisaPiper = () => (TUTORES[S.tutor] || {}).g === 'm' && !vozMasc;
 async function falarPiper(txt) {
   try {
@@ -4308,7 +4307,7 @@ function falarSistema(txt) {
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(txt);
-    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = (TUTORES[S.tutor] || TUTORES.dama).g === 'f' ? (vozMasc ? 1.05 : 1.35) : (vozMasc ? .95 : .55);
+    u.lang = 'pt-PT'; if (vozPT) u.voice = vozPT; u.rate = .98; u.pitch = 1;
     speechSynthesis.speak(u);
   } catch { /* sem voz */ }
 }
@@ -4316,7 +4315,7 @@ function speak(t) {
   if (!S.voz) return;
   const txt = String(t).replace(/<[^>]+>/g, '').replace(/[«»]/g, '');
   if (audioAtual) try { audioAtual.pause(); } catch { /* */ }
-  if (precisaPiper() && piperOk) { try { speechSynthesis.cancel(); } catch { /* */ } falarPiper(txt).then(ok => { if (!ok) falarSistema(txt); }); return; }
+  if (false) { try { speechSynthesis.cancel(); } catch { /* */ } falarPiper(txt).then(ok => { if (!ok) falarSistema(txt); }); return; }
   falarSistema(txt);
 }
 async function baixarVoz() {
@@ -4355,7 +4354,7 @@ function show(v) {
 function aplicarTutor() {
   const t = TUTORES[S.tutor] || TUTORES.dama; AG.mestre.n = t.n; AG.mestre.i = `<svg viewBox="0 0 40 40" style="width:30px;height:30px"><use href="#${t.ic}"/></svg>`;
   const l = $('#ladder-lbl'); if (l) l.textContent = t.n + ' · ajuda em degraus';
-  Mestre.tipo(S.tutor); escolherVoz(); setTimeout(propostaVoz, 1500);
+  Mestre.tipo(S.tutor); escolherVoz();
 }
 function header() {
   const ts = $('#tutor'); if (ts) { ts.value = S.tutor; ts.onchange = () => { S.tutor = ts.value; save(); aplicarTutor(); Mestre.humor('feliz', 'aceno'); const t = TUTORES[S.tutor]; speak(`Olá! Sou ${t.n === 'Dama Leonor' ? 'a' : 'o'} ${t.n}. Vamos aprender xadrez juntos.`); Mestre.fala('x'.repeat(50)); }; }
