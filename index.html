@@ -151,7 +151,14 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         <div class="seg" id="s-mode">
           <button data-v="bot">Contra o Oponente virtual</button>
           <button data-v="local">Pai e filha no mesmo aparelho</button>
+          <button data-v="dist">À distância (outro aparelho)</button>
         </div></div>
+      <div id="s-dist" hidden>
+        <div class="field"><label for="s-opp">Adversário</label><select id="s-opp"></select></div>
+        <div class="field"><span class="lbl">As minhas peças</span><div class="seg" id="s-dcol"><button data-v="w">Brancas</button><button data-v="b">Pretas</button></div></div>
+        <p class="note">Jogas o teu lance e a app prepara um link para enviares por WhatsApp, SMS ou email. O adversário abre-o na app dele (PC, tablet ou telemóvel), joga e devolve. O Juiz verifica as regras nos dois aparelhos e rejeita links adulterados.</p>
+        <div class="seg" id="s-dlist"></div>
+      </div>
       <div id="s-local" hidden>
         <div class="field"><label for="s-w">Brancas</label><select id="s-w"></select></div>
         <div class="field"><label for="s-b">Pretas</label><select id="s-b"></select></div>
@@ -159,7 +166,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         <label class="note"><input type="checkbox" id="s-touch" checked> Peça tocada, peça jogada (FIDE 4.3)</label>
         <p class="note">Entre humanos o Mestre fica bloqueado. Só o Juiz Rocha ajuda, e apenas com regras.</p>
       </div>
-      <p class="note">Brevemente: partidas à distância (Lichess) e por correspondência (link por email, SMS ou WhatsApp).</p>
+      <p class="note">Brevemente: partidas em tempo real pelo Lichess.</p>
     </div>
     <div class="card" id="s-bot">
       <h2>Oponente virtual</h2>
