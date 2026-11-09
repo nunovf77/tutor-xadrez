@@ -160,6 +160,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
 .badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.75rem;font-weight:700;margin-left:4px}
 .pend{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%} .pend small{color:var(--muted)} .pend.vez{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
+.donov{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 88%,transparent);padding:16px}
+.dono{max-width:440px;width:100%} .dono input{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:1.1rem;letter-spacing:.3em;background:var(--surface)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -188,7 +190,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
   <section id="v-setup" class="setup">
     <div class="card">
       <h2>Quem joga?</h2>
-      <div class="field"><span class="lbl">Jogador neste aparelho</span><div class="seg" id="s-user"></div></div>
+      <div class="field"><span class="lbl">Dono deste aparelho</span><div class="seg" id="s-user"></div></div>
       <div class="field"><span class="lbl">Modo</span>
         <div class="seg" id="s-mode">
           <button data-v="bot">Contra o Oponente virtual</button>
@@ -292,6 +294,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 </main>
 
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
+<div id="dono" class="donov" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden><!--
 
@@ -4185,7 +4188,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.11.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.12.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4222,6 +4225,8 @@ const REGRA = {
 /* ---------- estado ---------- */
 const JOGADORES0 = { nuno: { nome: 'Nuno', rating: 400, jogos: 0 }, ines: { nome: 'Inês', rating: 400, jogos: 0 }, conv: { nome: 'Convidado', rating: 400, jogos: 0 } };
 let players = Object.assign({}, JOGADORES0, store.get('players', {}));
+let DONO = store.get('dono', null);   // { id: 'nuno'|'ines', pinH: hash do PIN do pai, desde: data }
+async function hashPIN(pin) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tx-pin:' + pin)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 const S = {
   user: store.get('user', 'nuno'), voz: store.get('voz', true), mode: store.get('mode', 'bot'),
   style: store.get('style', 'faisca'), colorPref: store.get('color', 'w'), auto: store.get('auto', true),
@@ -4375,9 +4380,12 @@ function save() {
 function seg(id, cur, fn) { $$('#' + id + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === cur); b.onclick = () => { fn(b.dataset.v); renderSetup(); }; }); }
 function autoElo() { return Math.max(400, Math.min(2500, Math.round((players[S.user].rating + 25) / 25) * 25)); }
 function renderSetup() {
+  if (DONO) S.user = DONO.id;
   const su = $('#s-user'); su.innerHTML = '';
+  if (DONO) { su.innerHTML = `<span class="pill">🔒 ${players[DONO.id].nome} · aparelho ${DEVC}</span> <button class="btn" id="s-troca">Mudar dono (PIN do pai)</button>`; $('#s-troca').onclick = trocarDono; }
+  else
   Object.entries(players).forEach(([k, p]) => { const b = el('button', null, p.nome); b.dataset.v = k; su.append(b); });
-  seg('s-user', S.user, v => { S.user = v; header(); });
+  if (!DONO) seg('s-user', S.user, v => { S.user = v; header(); });
   seg('s-mode', S.mode, v => { S.mode = v; });
   seg('s-style', S.style, v => { S.style = v; });
   seg('s-color', S.colorPref, v => { S.colorPref = v; });
@@ -4839,9 +4847,11 @@ function retomar(c, d) {
   const g = new Chess();
   try { g.loadPgn((d || c).pgn || ''); } catch { show('play'); return say('arbitro', 'Link inválido: contém lances ilegais. Rejeitado (as regras são lei).'); }
   S.mode = 'dist'; reset(g);
-  const color = c ? c.color : (d.by === 'w' ? 'b' : 'w');
+  const src = d || c, eu = DONO ? DONO.id : S.user;
+  if (src.w !== eu && src.b !== eu) { show('play'); say('arbitro', `Esta partida é entre ${players[src.w]?.nome} e ${players[src.b]?.nome}. Este aparelho pertence a ${players[eu]?.nome}: não pode jogar por outra pessoa.`); auditar('identidade-recusada'); return; }
+  const color = src.w === eu ? 'w' : 'b';
   S.dist = { id: (d || c).id, w: (d || c).w, b: (d || c).b, offer: d ? d.offer : c.offer, res: (d || c).res, rtxt: (d || c).rtxt };
-  S.color = color; S.user = S.dist[color] || S.user; save(); header(); show('play'); renderAll();
+  S.color = color; S.user = eu; save(); header(); show('play'); renderAll();
   const jaFeito = c && c.done;
   if (S.game.isGameOver()) { if (!jaFeito) fim({ received: true }); else { S.over = true; S.result = 'Partida terminada'; renderAll(); } return; }
   if (S.dist.res) { if (!jaFeito) terminar(S.dist.res, S.dist.rtxt, { received: true }); else { S.over = true; S.result = S.dist.rtxt; renderAll(); } return; }
@@ -4876,7 +4886,7 @@ const DEV = store.get('dev', null) || (() => { const d = Math.random().toString(
 let fam = store.get('fam', null), es = null;
 function garantirFam() { if (!fam) { fam = { code: [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, '0')).join(''), paired: false }; store.set('fam', fam); } return fam; }
 const topico = () => 'tutorxadrez-' + fam.code;
-async function pub(o) { if (!fam || !navigator.onLine) return false; try { const r = await fetch(RELAY + topico(), { method: 'POST', body: JSON.stringify({ ...o, from: DEV }) }); return r.ok; } catch { return false; } }
+async function pub(o) { if (!fam || !navigator.onLine) return false; try { const r = await fetch(RELAY + topico(), { method: 'POST', body: JSON.stringify({ ...o, from: DEV, who: DONO ? DONO.id : S.user }) }); return r.ok; } catch { return false; } }
 function dadosCorr(c) { return { v: 1, id: c.id, w: c.w, b: c.b, pgn: c.pgn, by: c.color, offer: c.offer || null, res: c.done ? c.res : null, rtxt: c.done ? c.rtxt : null }; }
 function lances(pgn) { const c = new Chess(); try { c.loadPgn(pgn || ''); return c.history(); } catch { return null; } }
 function ligar() {
@@ -4912,6 +4922,12 @@ function recebe(o) {
   if (o.k === 'g' && o.d) notificar(`${players[o.d[o.d.by]]?.nome || 'O adversário'} jogou. É a tua vez.`);
   if (o.k !== 'g' || !o.d) return;
   const d = o.d, b = lances(d.pgn); if (!b) return;
+  const eu = DONO ? DONO.id : S.user;
+  if (d.w !== eu && d.b !== eu) return;                         // partida que não é deste aparelho
+  if (!o.who || d[d.by] !== o.who || o.who === eu) { auditar('remetente-inválido'); return; }   // só o adversário pode jogar a sua cor
+  const devs = store.get('devs', {});
+  if (!devs[o.who]) { devs[o.who] = [o.from]; store.set('devs', devs); }
+  else if (!devs[o.who].includes(o.from)) { auditar('aparelho-novo:' + o.who); aviso(`Lance de ${players[o.who]?.nome} vindo de um aparelho novo (${String(o.from).slice(0, 4).toUpperCase()}).`, [['Aceitar este aparelho', () => { const x = store.get('devs', {}); x[o.who] = [...(x[o.who] || []), o.from]; store.set('devs', x); recebe(o); }], ['Recusar', () => auditar('aparelho-recusado:' + o.who)]]); return; }
   const m = store.get('corr', {}), local = m[d.id], quem = players[d[d.by]]?.nome || 'O adversário';
   if (!local) {
     m[d.id] = { id: d.id, w: d.w, b: d.b, pgn: d.pgn, color: d.by === 'w' ? 'b' : 'w', offer: d.offer, res: d.res, rtxt: d.rtxt, done: false }; store.set('corr', m);
@@ -4944,6 +4960,32 @@ function renderSync() {
 window.addEventListener('online', () => { ligar(); publicarPendentes(); renderSync(); });
 window.addEventListener('offline', renderSync);
 window.__txUpdate = () => { const ocupado = (S.game && !S.over && !$('#v-play').hidden) || LS; if (!ocupado) location.reload(); else aviso('Há uma versão nova da app.', [['Atualizar agora', () => location.reload()]]); };
+
+/* ---------- dono do aparelho ---------- */
+const DEVC = String(DEV).slice(0, 4).toUpperCase();
+function ecraDono(modoTroca) {
+  const w = $('#dono'); w.hidden = false;
+  w.innerHTML = `<div class="card dono"><h2>${modoTroca ? 'Mudar o dono deste aparelho' : 'De quem é este aparelho?'}</h2>
+    <p class="note">Cada aparelho pertence a um jogador. Neste aparelho só esse jogador joga com o seu nome, rating e progresso. Aparelho ${DEVC}.</p>
+    <div class="seg" id="d-quem"><button data-v="nuno">Nuno</button><button data-v="ines">Inês</button></div>
+    <div class="field"><label for="d-pin">${modoTroca ? 'PIN do pai' : 'PIN do pai (4 a 8 algarismos, para mudar o dono no futuro)'}</label><input id="d-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>
+    <p class="note" id="d-err"></p><div class="controls"><button class="btn pri" id="d-ok">Confirmar</button>${modoTroca ? '<button class="btn" id="d-cancel">Cancelar</button>' : ''}</div></div>`;
+  let quem = null;
+  w.querySelectorAll('#d-quem button').forEach(b => { b.onclick = () => { quem = b.dataset.v; w.querySelectorAll('#d-quem button').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
+  if (modoTroca) $('#d-cancel').onclick = () => { w.hidden = true; };
+  $('#d-ok').onclick = async () => {
+    const pin = $('#d-pin').value.trim(), err = $('#d-err');
+    if (!quem) return err.textContent = 'Escolhe o jogador.';
+    if (!/^\d{4,8}$/.test(pin)) return err.textContent = 'O PIN tem de ter 4 a 8 algarismos.';
+    const h = await hashPIN(pin);
+    if (modoTroca && h !== DONO.pinH) { auditar('pin-errado'); return err.textContent = 'PIN errado.'; }
+    if (modoTroca) auditar('dono-alterado:' + DONO.id + '→' + quem);
+    DONO = { id: quem, pinH: h, desde: new Date().toISOString() }; store.set('dono', DONO); S.user = quem; save();
+    w.hidden = true; header(); renderSetup(); atualizarPendentes();
+    aviso(`Este aparelho pertence agora a ${players[quem].nome}.`);
+  };
+}
+function trocarDono() { ecraDono(true); }
 
 /* ---------- Evolução ---------- */
 function renderEvolucao() {
@@ -5143,7 +5185,7 @@ $('#b-draw').onclick = async () => {
 $('#b-new').onclick = () => show('setup');
 
 /* ---------- arranque ---------- */
-aplicarTutor(); header(); renderSetup(); atualizarPendentes(); if (store.get('pausa', null)) pausa = store.get('pausa', null); if (fam) ligar(); if (!abrirLink()) show('setup');
+if (DONO) S.user = DONO.id; aplicarTutor(); header(); renderSetup(); atualizarPendentes(); if (!DONO) ecraDono(false); if (store.get('pausa', null)) pausa = store.get('pausa', null); if (fam) ligar(); if (!abrirLink()) show('setup');
 window.addEventListener('hashchange', () => { abrirLink(); });
 
 </script>

@@ -166,6 +166,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
 .badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.75rem;font-weight:700;margin-left:4px}
 .pend{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%} .pend small{color:var(--muted)} .pend.vez{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
+.donov{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 88%,transparent);padding:16px}
+.dono{max-width:440px;width:100%} .dono input{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:1.1rem;letter-spacing:.3em;background:var(--surface)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -194,7 +196,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
   <section id="v-setup" class="setup">
     <div class="card">
       <h2>Quem joga?</h2>
-      <div class="field"><span class="lbl">Jogador neste aparelho</span><div class="seg" id="s-user"></div></div>
+      <div class="field"><span class="lbl">Dono deste aparelho</span><div class="seg" id="s-user"></div></div>
       <div class="field"><span class="lbl">Modo</span>
         <div class="seg" id="s-mode">
           <button data-v="bot">Contra o Oponente virtual</button>
@@ -298,9 +300,10 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 </main>
 
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
+<div id="dono" class="donov" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden></div>
-<script type="module" src="app.js?v=0.11.0"></script>
+<script type="module" src="app.js?v=0.12.0"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){setInterval(function(){r.update().catch(function(){})},1800000);document.addEventListener('visibilitychange',function(){if(!document.hidden)r.update().catch(function(){})})}).catch(function(){});var had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!had||rl)return;rl=true;if(window.__txUpdate)window.__txUpdate();else location.reload();});}</script>
 </body>
 </html>
