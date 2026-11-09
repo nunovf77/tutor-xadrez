@@ -295,6 +295,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
 <div id="dono" class="donov" hidden></div>
+<div id="bloq" class="donov" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden><!--
 
@@ -4188,7 +4189,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.12.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.13.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4635,6 +4636,7 @@ function fim(o) {
   terminar(res, txt, o); return true;
 }
 function terminar(res, txt, o = {}) {
+  setTimeout(relatorio, 1500);
   if (S.clk) S.clk.on = false;
   S.over = true; S.busy = false; S.result = txt.split(':')[0].replace(/\.$/, '');
   say('arbitro', txt);
@@ -4920,6 +4922,8 @@ function recebe(o) {
   if (fam && !fam.paired) { fam.paired = true; store.set('fam', fam); renderSync(); }
   setTimeout(atualizarPendentes, 50);
   if (o.k === 'g' && o.d) notificar(`${players[o.d[o.d.by]]?.nome || 'O adversário'} jogou. É a tua vez.`);
+  if (o.k === 'req' && (o.to === '*' || o.to === DEV)) { relatorio(); return; }
+  if (o.k === 'cmd' && (o.to === '*' || o.to === DEV)) { comando(o); return; }
   if (o.k !== 'g' || !o.d) return;
   const d = o.d, b = lances(d.pgn); if (!b) return;
   const eu = DONO ? DONO.id : S.user;
@@ -4950,7 +4954,7 @@ function aviso(t, acts) {
 function renderSync() {
   const e = $('#s-sync'); if (!e) return;
   const est = !fam ? 'por ativar (ativa-se na primeira partida)' : !navigator.onLine ? 'sem internet (usa o link)' : fam.paired ? 'ligada ✓' : 'à espera do outro aparelho';
-  e.innerHTML = `<b>Sincronização automática:</b> ${est}`;
+  e.innerHTML = `<b>Sincronização automática:</b> ${est}${fam ? ` · código da família para a Consola do Pai: <code>${fam.code}</code>` : ''}`;
   const b = el('button', 'btn', 'Emparelhar outro aparelho'); b.onclick = () => {
     garantirFam(); ligar(); const url = BASE + '#f=' + fam.code, msg = '♟ Tutor de Xadrez: abre este link no teu aparelho para os lances chegarem sozinhos: ' + url;
     show('play'); say('arbitro', 'Envia este link uma vez ao outro aparelho.', [navigator.share ? ['Partilhar', () => navigator.share({ title: 'Tutor de Xadrez', text: msg }).catch(() => {}), true] : ['WhatsApp', () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank'), true], ['Email', () => { location.href = 'mailto:?subject=Tutor%20de%20Xadrez&body=' + encodeURIComponent(msg); }], ['Copiar', () => { try { navigator.clipboard.writeText(msg).then(() => aviso('Link copiado.')); } catch { /* */ } }]]);
@@ -4960,6 +4964,32 @@ function renderSync() {
 window.addEventListener('online', () => { ligar(); publicarPendentes(); renderSync(); });
 window.addEventListener('offline', renderSync);
 window.__txUpdate = () => { const ocupado = (S.game && !S.over && !$('#v-play').hidden) || LS; if (!ocupado) location.reload(); else aviso('Há uma versão nova da app.', [['Atualizar agora', () => location.reload()]]); };
+
+/* ---------- relatórios e comandos da Consola do Pai ---------- */
+function relatorio() {
+  if (!fam || !DONO) return;
+  const eu = DONO.id, p = players[eu], lp = (store.get('learn', {})[eu]) || { l: {}, xp: 0 };
+  const g = store.get('games', []).filter(x => x.jogador === eu || x.brancas === eu || x.pretas === eu).slice(-8).map(x => ({ d: x.d, modo: x.modo, res: x.res, adv: x.adv || (x.brancas === eu ? x.pretas : x.brancas), delta: x.delta ?? null, ajudas: x.ajudas }));
+  pub({ k: 'st', dev: DEV, ver: VERSAO, tutor: S.tutor, bloq: !!store.get('bloq', false), r: { nome: p.nome, rating: Math.round(p.rating), escalao: escalao(p.rating), jogos: p.jogos },
+    learn: { licoes: Object.values(lp.l).filter(x => x.ok).length, total: LICOES.length, xp: lp.xp, seq: streakAtual(lp) }, games: g,
+    pend: pendentes().map(x => ({ id: x.c.id, vez: x.vez, n: x.n })), audit: store.get('audit', []).slice(-8), ts: new Date().toISOString() });
+}
+function comando(o) {
+  if (!DONO) return;
+  if (o.op === 'msg') { aviso('Mensagem do pai: ' + String(o.text || '').slice(0, 300)); return; }
+  if (o.pinH !== DONO.pinH) { auditar('comando-recusado:' + o.op); return; }
+  if (o.op === 'bloq') { store.set('bloq', true); bloqueio(); }
+  if (o.op === 'desbloq') { store.set('bloq', false); bloqueio(); }
+  if (o.op === 'reset-learn') { const a = store.get('learn', {}); delete a[DONO.id]; store.set('learn', a); if (!$('#v-aprender').hidden) renderPercurso(); aviso('O progresso de «Aprender» foi reposto pelo pai.'); }
+  if (o.op === 'reset-rating') { players[DONO.id].rating = 400; players[DONO.id].jogos = 0; save(); header(); aviso('O rating foi reposto pelo pai.'); }
+  if (o.op === 'tutor' && TUTORES[o.text]) { S.tutor = o.text; save(); aplicarTutor(); header(); }
+  auditar('comando:' + o.op); relatorio();
+}
+function bloqueio() {
+  const b = !!store.get('bloq', false), w = $('#bloq');
+  w.hidden = !b; if (b) w.innerHTML = '<div class="card dono"><h2>App em pausa</h2><p>O pai pausou o Tutor de Xadrez neste aparelho. Volta mais tarde.</p></div>';
+}
+setInterval(() => { if (navigator.onLine && document.visibilityState === 'visible') relatorio(); }, 15 * 60000);
 
 /* ---------- dono do aparelho ---------- */
 const DEVC = String(DEV).slice(0, 4).toUpperCase();
@@ -4981,7 +5011,7 @@ function ecraDono(modoTroca) {
     if (modoTroca && h !== DONO.pinH) { auditar('pin-errado'); return err.textContent = 'PIN errado.'; }
     if (modoTroca) auditar('dono-alterado:' + DONO.id + '→' + quem);
     DONO = { id: quem, pinH: h, desde: new Date().toISOString() }; store.set('dono', DONO); S.user = quem; save();
-    w.hidden = true; header(); renderSetup(); atualizarPendentes();
+    garantirFam(); ligar(); w.hidden = true; header(); renderSetup(); atualizarPendentes(); setTimeout(relatorio, 2000);
     aviso(`Este aparelho pertence agora a ${players[quem].nome}.`);
   };
 }
@@ -5127,7 +5157,7 @@ function fimLicao() {
   p.l[LS.L.id] = { s: Math.max(s, ant?.s || 0), ok: ok || !!ant?.ok, pct: Math.max(pct, ant?.pct || 0) };
   p.xp += xp; const d = hoje(); p.dxp = (p.dday === d ? (p.dxp || 0) : 0) + xp; p.dday = d;
   if (p.day !== d) { p.streak = streakAtual(p) ? p.streak + 1 : 1; p.day = d; }
-  saveProg(p);
+  saveProg(p); setTimeout(relatorio, 1500);
   const idx = LICOES.findIndex(x => x.id === LS.L.id), fimU = idx >= 0 && CURSO.some(U => U.l[U.l.length - 1].id === LS.L.id), prox = idx < 0 || fimU ? null : LICOES[idx + 1];
   $('#v-aprender').innerHTML = `<div class="lesson"><div class="mav" id="l-av"></div><div class="card"><h2>${ok ? 'Lição concluída!' : 'Quase lá'}</h2>
     <p class="big">${'★'.repeat(s)}${'☆'.repeat(3 - s)}</p><p>Acertaste à primeira <b>${pct}%</b> · +${xp} XP · meta diária ${Math.min(p.dxp, META)}/${META} XP · sequência ${p.streak} dia(s)</p>${fimU && ok ? '<p class="note">Unidade completa: faz o Teste da unidade para desbloquear a seguinte.</p>' : ''}
@@ -5185,7 +5215,7 @@ $('#b-draw').onclick = async () => {
 $('#b-new').onclick = () => show('setup');
 
 /* ---------- arranque ---------- */
-if (DONO) S.user = DONO.id; aplicarTutor(); header(); renderSetup(); atualizarPendentes(); if (!DONO) ecraDono(false); if (store.get('pausa', null)) pausa = store.get('pausa', null); if (fam) ligar(); if (!abrirLink()) show('setup');
+bloqueio(); if (DONO) S.user = DONO.id; setTimeout(relatorio, 4000); aplicarTutor(); header(); renderSetup(); atualizarPendentes(); if (!DONO) ecraDono(false); if (store.get('pausa', null)) pausa = store.get('pausa', null); if (fam) ligar(); if (!abrirLink()) show('setup');
 window.addEventListener('hashchange', () => { abrirLink(); });
 
 </script>

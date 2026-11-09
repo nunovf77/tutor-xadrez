@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Consola do Pai · Tutor de Xadrez</title>
+<meta name="copyright" content="© 2026 Nuno Freitas. Todos os direitos reservados.">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<link rel="icon" href="favicon.ico">
+<!-- Consola do Pai — Tutor de Xadrez — © 2026 Nuno Freitas. Todos os direitos reservados. Software proprietário. Ref. TX-NF-2026-3FCA48 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Spectral+SC:wght@600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{--bg:#EEF2F1;--surface:#fff;--ink:#16302C;--muted:#5A6F6B;--line:#D3DEDB;--accent:#0F6E63;--good:#1F8A4C;--bad:#C2412D;--warn:#C98A16;
+--f-d:"Spectral SC",Georgia,serif;--f-b:"Atkinson Hyperlegible",system-ui,sans-serif;--f-m:"JetBrains Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1A19;--surface:#152523;--ink:#E3EEEB;--muted:#93A9A4;--line:#25403C;--accent:#3FB3A2;--good:#4CC17E;--bad:#F07560;--warn:#E8B04A;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-b);font-size:15px;line-height:1.45;padding:0 max(16px,env(safe-area-inset-left)) 32px max(16px,env(safe-area-inset-right))}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:16px}
+header h1{font-family:var(--f-d);font-size:1.35rem;margin:0}.sub{color:var(--muted);font-size:.85rem}
+.st{margin-left:auto;font-size:.85rem;border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--surface)}
+.st.on{border-color:var(--good);color:var(--good)}
+main{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+h2{font-family:var(--f-d);font-size:1.1rem;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
+.dev h3{margin:0;font-size:1.1rem}.dev .meta{color:var(--muted);font-size:.8rem;font-family:var(--f-m)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px}.kpi b{display:block;font-family:var(--f-m);font-size:1.3rem;font-variant-numeric:tabular-nums}.kpi span{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.88rem}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tw{overflow-x:auto}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;border:1px solid var(--line)}
+.pill.vez{border-color:var(--bad);color:var(--bad)}.pill.ok{border-color:var(--good);color:var(--good)}.pill.bloq{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .btns select{width:auto}
+button,input,select{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 11px;cursor:pointer}.btn.pri{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}.btn.dang{border-color:var(--bad);color:var(--bad)}
+input,select{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}.row>div{flex:1;min-width:200px}
+label{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:4px}
+.log{font-family:var(--f-m);font-size:.78rem;max-height:260px;overflow:auto;white-space:pre-wrap}
+.note{color:var(--muted);font-size:.85rem}
+:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+footer{max-width:1100px;margin:24px auto 0;font-size:.75rem;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+</style>
+</head>
+<body>
+<header><svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#0F6E63"/><path d="M13 31h15l-1.5-4.5c2-3 2.5-7 .5-11-1.6-3.2-5-5-8.5-5l-1 2.5-3 1.5-3 5 2 2.2 4-1.7c.6 1.3-.4 3.5-2.2 5.3L13 31z" fill="#fff"/></svg>
+<div><h1>Consola do Pai</h1><span class="sub">Tutor de Xadrez · v0.13.0</span></div><span class="st" id="st">desligada</span></header>
+<main>
+<section class="card" id="cfg">
+  <h2>Ligação à família</h2>
+  <div class="row">
+    <div><label for="code">Código da família</label><input id="code" autocomplete="off" placeholder="em Jogar → À distância, no aparelho do Nuno"></div>
+    <div><label for="pin">PIN do pai (para comandos)</label><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>
+    <div style="flex:0"><button class="btn pri" id="ligar">Ligar</button></div>
+  </div>
+  <p class="note">O código aparece na app, em «Jogar → À distância → Sincronização automática». O PIN não sai deste aparelho: só é enviada a sua impressão digital (hash), que cada aparelho compara com a sua.</p>
+</section>
+<section class="grid" id="devs"><div class="card"><h2>Aparelhos</h2><p class="note">Liga-te com o código da família. Os aparelhos aparecem quando abrirem a app ou quando carregares em «Pedir relatório».</p></div></section>
+<section class="card">
+  <h2>Comandos para todos os aparelhos</h2>
+  <div class="row"><div><label for="msg">Mensagem</label><input id="msg" maxlength="300" placeholder="Ex.: Hoje às 18:00 jogamos uma partida!"></div><div style="flex:0"><button class="btn" id="sendmsg">Enviar</button></div></div>
+  <div class="btns"><button class="btn pri" id="reqall">Pedir relatório</button><button class="btn" id="exp">Exportar dados (JSON)</button></div>
+</section>
+<section class="card"><h2>Registo</h2><div class="log" id="log"></div></section>
+</main>
+<footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48</footer>
+<script>
+/*! Consola do Pai — © 2026 Nuno Freitas. Todos os direitos reservados. Ref. TX-NF-2026-3FCA48 */
+(function(){
+const RELAY=window.TX_RELAY||'https://ntfy.sh/', $=s=>document.querySelector(s);
+const ST={get(k,d){try{const v=localStorage.getItem('txc.'+k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem('txc.'+k,JSON.stringify(v))}catch{}}};
+let cfg=ST.get('cfg',{code:'',pinH:''}), devs=ST.get('devs',{}), es=null, log=ST.get('log',[]);
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dt=s=>{if(!s)return'—';const d=new Date(s);return d.toLocaleDateString('pt-PT')+' '+d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})};
+const NOMES={nuno:'Nuno',ines:'Inês',conv:'Convidado'};
+async function hashPIN(pin){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('tx-pin:'+pin));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function L(t){log.unshift(dt(new Date().toISOString())+'  '+t);log=log.slice(0,200);ST.set('log',log);$('#log').textContent=log.join('\n')}
+async function pub(o){if(!cfg.code)return;try{await fetch(RELAY+'tutorxadrez-'+cfg.code,{method:'POST',body:JSON.stringify({...o,from:'consola',who:'pai'})});}catch{L('Falha a enviar (sem internet?)')}}
+function ligar(){
+  if(es){es.close();es=null}
+  if(!cfg.code)return;
+  es=new EventSource(RELAY+'tutorxadrez-'+cfg.code+'/sse?since=12h');
+  es.onopen=()=>{$('#st').textContent='ligada';$('#st').className='st on';pub({k:'req',to:'*'})};
+  es.onerror=()=>{$('#st').textContent='a religar…';$('#st').className='st'};
+  es.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.event&&m.event!=='message')return;const o=JSON.parse(m.message);recebe(o)}catch{}};
+}
+function recebe(o){
+  if(o.from==='consola')return;
+  if(o.k==='st'&&o.dev){const prev=devs[o.dev];if(!prev||prev.ts<=o.ts){devs[o.dev]=o;ST.set('devs',devs);render()}if(!prev)L('Novo aparelho: '+(o.r?.nome||o.who)+' ('+String(o.dev).slice(0,4).toUpperCase()+')');return}
+  if(o.k==='g'&&o.d){const d=o.d;L(`Partida ${d.id}: ${NOMES[d[d.by]]||d[d.by]} jogou (${(d.pgn.match(/\d+\./g)||[]).length} lances)${d.res?' · resultado '+d.res:''}`);return}
+  if(o.k==='h')L('Aparelho emparelhado: '+(NOMES[o.who]||o.who||'?'));
+}
+function cmd(op,to,text){if(['bloq','desbloq','reset-learn','reset-rating','tutor'].includes(op)&&!cfg.pinH)return alertar('Escreve o PIN do pai e carrega em «Ligar».');pub({k:'cmd',op,to,text,pinH:cfg.pinH});L(`Comando «${op}» enviado para ${to==='*'?'todos':String(to).slice(0,4).toUpperCase()}`);setTimeout(()=>pub({k:'req',to}),2500)}
+function alertar(t){L('⚠ '+t)}
+function confirmar(btn,fn){if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t;fn()}else{btn.dataset.t=btn.textContent;btn.dataset.c=1;btn.textContent='Confirmar?';setTimeout(()=>{if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t}},4000)}}
+function render(){
+  const box=$('#devs'),L2=Object.values(devs).sort((a,b)=>(a.r?.nome||'').localeCompare(b.r?.nome||''));
+  if(!L2.length)return;
+  box.innerHTML=L2.map(d=>{const r=d.r||{},l=d.learn||{},pct=l.total?Math.round(l.licoes/l.total*100):0,dev=String(d.dev).slice(0,4).toUpperCase(),velho=(Date.now()-Date.parse(d.ts))>36e5*24;
+  return `<article class="card dev" data-dev="${esc(d.dev)}"><h3>${esc(r.nome)} ${d.bloq?'<span class="pill bloq">em pausa</span>':''}</h3>
+  <div class="meta">aparelho ${dev} · v${esc(d.ver)} · tutor ${esc(d.tutor)} · último contacto ${dt(d.ts)}${velho?' (há mais de 1 dia)':''}</div>
+  <div class="kpis"><div class="kpi"><b>${esc(r.rating)}</b><span>${esc(r.escalao)}</span></div><div class="kpi"><b>${esc(r.jogos)}</b><span>partidas</span></div><div class="kpi"><b>${esc(l.seq||0)}</b><span>dias seguidos</span></div></div>
+  <label>Aprender · ${esc(l.licoes)}/${esc(l.total)} lições · ${esc(l.xp)} XP</label><div class="bar"><i style="width:${pct}%"></i></div>
+  ${(d.pend||[]).length?`<p>${d.pend.map(p=>`<span class="pill ${p.vez?'vez':'ok'}">${p.vez?'● deve lance':'◌ à espera'} · ${esc(p.id)}</span>`).join(' ')}</p>`:''}
+  <div class="tw"><table><thead><tr><th>Data</th><th>Partida</th><th>Res.</th><th>Δ</th><th>Ajudas</th></tr></thead><tbody>${(d.games||[]).slice().reverse().map(g=>`<tr><td>${dt(g.d)}</td><td>${g.modo==='bot'?'vs '+esc(g.adv):g.modo==='dist'?'à distância vs '+esc(NOMES[g.adv]||g.adv):'mesmo aparelho vs '+esc(NOMES[g.adv]||g.adv)}</td><td>${esc(g.res)}</td><td>${g.delta==null?'—':(g.delta>0?'+':'')+g.delta}</td><td>${esc(g.ajudas)}</td></tr>`).join('')||'<tr><td colspan="5" class="note">Sem partidas.</td></tr>'}</tbody></table></div>
+  ${(d.audit||[]).length?`<details><summary class="note">Auditoria (${d.audit.length})</summary><div class="log">${d.audit.slice().reverse().map(a=>esc(dt(a.d)+'  '+a.tipo)).join('\n')}</div></details>`:''}
+  <div class="btns"><button class="btn" data-a="req">Pedir relatório</button><button class="btn" data-a="${d.bloq?'desbloq':'bloq'}">${d.bloq?'Retomar app':'Pausar app'}</button>
+  <select data-a="tutor" aria-label="Tutor"><option value="">Tutor…</option><option value="dama">Dama Leonor</option><option value="bispo">Bispo Gaspar</option><option value="mestre">Mestre Gaspar</option></select>
+  <button class="btn dang" data-a="reset-learn">Repor «Aprender»</button><button class="btn dang" data-a="reset-rating">Repor rating</button></div></article>`}).join('');
+  box.querySelectorAll('.dev').forEach(c=>{const dev=c.dataset.dev;c.querySelectorAll('[data-a]').forEach(b=>{const a=b.dataset.a;
+    if(a==='tutor')b.onchange=()=>{if(b.value)cmd('tutor',dev,b.value)};
+    else if(a==='req')b.onclick=()=>{pub({k:'req',to:dev});L('Relatório pedido a '+dev.slice(0,4).toUpperCase())};
+    else if(a.startsWith('reset'))b.onclick=()=>confirmar(b,()=>cmd(a,dev));
+    else b.onclick=()=>cmd(a,dev)})});
+}
+$('#code').value=cfg.code;
+$('#ligar').onclick=async()=>{let c=$('#code').value.trim();const m=c.match(/#f=([0-9a-f]+)/i);if(m)c=m[1];if(!/^[0-9a-f]{16,40}$/i.test(c))return alertar('Código inválido.');cfg.code=c.toLowerCase();const p=$('#pin').value.trim();if(p){if(!/^\d{4,8}$/.test(p))return alertar('PIN com 4 a 8 algarismos.');cfg.pinH=await hashPIN(p)}ST.set('cfg',cfg);$('#pin').value='';L('Ligado ao código da família');ligar()};
+$('#reqall').onclick=()=>{pub({k:'req',to:'*'});L('Relatório pedido a todos')};
+$('#sendmsg').onclick=()=>{const t=$('#msg').value.trim();if(!t)return;pub({k:'cmd',op:'msg',to:'*',text:t});L('Mensagem enviada: '+t);$('#msg').value=''};
+$('#exp').onclick=()=>{const blob=new Blob([JSON.stringify({devs,log},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tutor-xadrez-consola.json';a.click()};
+$('#log').textContent=log.join('\n');render();ligar();
+})();
+</script>
+</body>
+</html>
