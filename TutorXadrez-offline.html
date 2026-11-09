@@ -4189,7 +4189,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.13.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.13.1', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4954,7 +4954,7 @@ function aviso(t, acts) {
 function renderSync() {
   const e = $('#s-sync'); if (!e) return;
   const est = !fam ? 'por ativar (ativa-se na primeira partida)' : !navigator.onLine ? 'sem internet (usa o link)' : fam.paired ? 'ligada ✓' : 'à espera do outro aparelho';
-  e.innerHTML = `<b>Sincronização automática:</b> ${est}${fam ? ` · código da família para a Consola do Pai: <code>${fam.code}</code>` : ''}`;
+  e.innerHTML = `<b>Sincronização automática:</b> ${est}${fam ? ` · código da família: <code>${fam.code}</code>${DONO && DONO.id === 'nuno' ? ` · <a href="consola.html#c=${fam.code}" target="_blank" rel="noopener">Abrir Consola do Pai ↗</a>` : ''}` : ''}`;
   const b = el('button', 'btn', 'Emparelhar outro aparelho'); b.onclick = () => {
     garantirFam(); ligar(); const url = BASE + '#f=' + fam.code, msg = '♟ Tutor de Xadrez: abre este link no teu aparelho para os lances chegarem sozinhos: ' + url;
     show('play'); say('arbitro', 'Envia este link uma vez ao outro aparelho.', [navigator.share ? ['Partilhar', () => navigator.share({ title: 'Tutor de Xadrez', text: msg }).catch(() => {}), true] : ['WhatsApp', () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank'), true], ['Email', () => { location.href = 'mailto:?subject=Tutor%20de%20Xadrez&body=' + encodeURIComponent(msg); }], ['Copiar', () => { try { navigator.clipboard.writeText(msg).then(() => aviso('Link copiado.')); } catch { /* */ } }]]);

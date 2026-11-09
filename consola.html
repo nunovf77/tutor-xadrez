@@ -53,6 +53,7 @@ footer{max-width:1100px;margin:24px auto 0;font-size:.75rem;color:var(--muted);b
     <div><label for="pin">PIN do pai (para comandos)</label><input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>
     <div style="flex:0"><button class="btn pri" id="ligar">Ligar</button></div>
   </div>
+  <p class="note" id="err" style="color:var(--bad);font-weight:700"></p>
   <p class="note">O código aparece na app, em «Jogar → À distância → Sincronização automática». O PIN não sai deste aparelho: só é enviada a sua impressão digital (hash), que cada aparelho compara com a sua.</p>
 </section>
 <section class="grid" id="devs"><div class="card"><h2>Aparelhos</h2><p class="note">Liga-te com o código da família. Os aparelhos aparecem quando abrirem a app ou quando carregares em «Pedir relatório».</p></div></section>
@@ -91,7 +92,7 @@ function recebe(o){
   if(o.k==='h')L('Aparelho emparelhado: '+(NOMES[o.who]||o.who||'?'));
 }
 function cmd(op,to,text){if(['bloq','desbloq','reset-learn','reset-rating','tutor'].includes(op)&&!cfg.pinH)return alertar('Escreve o PIN do pai e carrega em «Ligar».');pub({k:'cmd',op,to,text,pinH:cfg.pinH});L(`Comando «${op}» enviado para ${to==='*'?'todos':String(to).slice(0,4).toUpperCase()}`);setTimeout(()=>pub({k:'req',to}),2500)}
-function alertar(t){L('⚠ '+t)}
+function alertar(t){L('⚠ '+t);const e=document.getElementById('err');if(e){e.textContent=t;setTimeout(()=>{e.textContent=''},8000)}}
 function confirmar(btn,fn){if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t;fn()}else{btn.dataset.t=btn.textContent;btn.dataset.c=1;btn.textContent='Confirmar?';setTimeout(()=>{if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t}},4000)}}
 function render(){
   const box=$('#devs'),L2=Object.values(devs).sort((a,b)=>(a.r?.nome||'').localeCompare(b.r?.nome||''));
@@ -113,8 +114,9 @@ function render(){
     else if(a.startsWith('reset'))b.onclick=()=>confirmar(b,()=>cmd(a,dev));
     else b.onclick=()=>cmd(a,dev)})});
 }
+{const h=location.hash.match(/#c=([0-9a-f]{16,40})/i);if(h){cfg.code=h[1].toLowerCase();ST.set('cfg',cfg);try{history.replaceState(null,'',location.pathname)}catch{}}}
 $('#code').value=cfg.code;
-$('#ligar').onclick=async()=>{let c=$('#code').value.trim();const m=c.match(/#f=([0-9a-f]+)/i);if(m)c=m[1];if(!/^[0-9a-f]{16,40}$/i.test(c))return alertar('Código inválido.');cfg.code=c.toLowerCase();const p=$('#pin').value.trim();if(p){if(!/^\d{4,8}$/.test(p))return alertar('PIN com 4 a 8 algarismos.');cfg.pinH=await hashPIN(p)}ST.set('cfg',cfg);$('#pin').value='';L('Ligado ao código da família');ligar()};
+$('#ligar').onclick=async()=>{let c=$('#code').value.trim();const m=c.match(/#f=([0-9a-f]+)/i);if(m)c=m[1];if(/script\.google|^https?:/i.test(c)&&!m)return alertar('Isso é um endereço da web, não o código da família. Na app do Tutor de Xadrez (aparelho do Nuno): Jogar → À distância → copia o código que aparece em «código da família», ou carrega em «Abrir Consola do Pai».');if(!/^[0-9a-f]{16,40}$/i.test(c))return alertar('Código inválido: são 24 letras/números (0–9, a–f).');cfg.code=c.toLowerCase();const p=$('#pin').value.trim();if(p){if(!/^\d{4,8}$/.test(p))return alertar('PIN com 4 a 8 algarismos.');cfg.pinH=await hashPIN(p)}ST.set('cfg',cfg);$('#pin').value='';L('Ligado ao código da família');ligar()};
 $('#reqall').onclick=()=>{pub({k:'req',to:'*'});L('Relatório pedido a todos')};
 $('#sendmsg').onclick=()=>{const t=$('#msg').value.trim();if(!t)return;pub({k:'cmd',op:'msg',to:'*',text:t});L('Mensagem enviada: '+t);$('#msg').value=''};
 $('#exp').onclick=()=>{const blob=new Blob([JSON.stringify({devs,log},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tutor-xadrez-consola.json';a.click()};
