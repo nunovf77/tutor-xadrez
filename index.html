@@ -164,6 +164,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .clock.on{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)} .clock.on b{color:var(--accent)}
 .clock.low b{color:var(--bad)}
 .toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.75rem;font-weight:700;margin-left:4px}
+.pend{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%} .pend small{color:var(--muted)} .pend.vez{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -204,7 +206,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         <div class="field"><span class="lbl">As minhas peças</span><div class="seg" id="s-dcol"><button data-v="w">Brancas</button><button data-v="b">Pretas</button></div></div>
         <p class="note">Com internet, os lances chegam sozinhos ao outro aparelho. Na primeira partida envias um link uma vez (WhatsApp, SMS ou email) para ligar os dois aparelhos. Sem internet, o lance fica guardado e segue quando houver ligação, ou envias por link. O Juiz verifica as regras nos dois aparelhos.</p>
         <p class="note" id="s-sync"></p>
-        <div class="seg" id="s-dlist"></div>
+        
       </div>
       <div id="s-local" hidden>
         <div class="field"><label for="s-w">Brancas</label><select id="s-w"></select></div>
@@ -232,6 +234,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         </div></div>
     </div>
     <div class="card"><h2>Relógio</h2><div class="field"><label for="s-tc">Ritmo de jogo (minutos + segundos por lance)</label><select id="s-tc"><option value="0">Sem relógio</option><option value="5+3">5 + 3 (rápido)</option><option value="10+5">10 + 5</option><option value="15+10">15 + 10 (recomendado para aprender)</option><option value="30+0">30 + 0</option><option value="60+30">60 + 30 (clássico)</option></select></div><p class="note">Contra o Oponente e no mesmo aparelho. Quem esgota o tempo perde, exceto se o adversário não tiver material para dar mate (empate, FIDE 6.9). À distância não há relógio.</p></div>
+    <div class="card"><h2>Partidas à distância</h2><div class="seg" id="s-dlist"></div><p class="note">Um ponto vermelho em «Jogar» indica quantas partidas esperam o teu lance. Podes aprender ou jogar outra partida entretanto: as partidas à distância ficam guardadas até jogares.</p></div>
     <div><button class="btn pri" id="start">Começar partida</button></div>
   </section>
 
@@ -297,7 +300,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
 <footer>© 2026 Nuno Freitas · Todos os direitos reservados · Uso exclusivo autorizado · Ref. TX-NF-2026-3FCA48 · Motor Stockfish (GPL-3), chess.js (BSD-2) e peças Cburnett (CC BY-SA 3.0): ver NOTICE.</footer>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="sprite" hidden></div>
-<script type="module" src="app.js?v=0.10.0"></script>
+<script type="module" src="app.js?v=0.11.0"></script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){setInterval(function(){r.update().catch(function(){})},1800000);document.addEventListener('visibilitychange',function(){if(!document.hidden)r.update().catch(function(){})})}).catch(function(){});var had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!had||rl)return;rl=true;if(window.__txUpdate)window.__txUpdate();else location.reload();});}</script>
 </body>
 </html>

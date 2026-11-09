@@ -158,6 +158,8 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)} th{fo
 .clock.on{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)} .clock.on b{color:var(--accent)}
 .clock.low b{color:var(--bad)}
 .toggle select{border:0;background:transparent;padding:0 2px;font:inherit;color:var(--ink)}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.75rem;font-weight:700;margin-left:4px}
+.pend{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%} .pend small{color:var(--muted)} .pend.vez{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
 footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -198,7 +200,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         <div class="field"><span class="lbl">As minhas peças</span><div class="seg" id="s-dcol"><button data-v="w">Brancas</button><button data-v="b">Pretas</button></div></div>
         <p class="note">Com internet, os lances chegam sozinhos ao outro aparelho. Na primeira partida envias um link uma vez (WhatsApp, SMS ou email) para ligar os dois aparelhos. Sem internet, o lance fica guardado e segue quando houver ligação, ou envias por link. O Juiz verifica as regras nos dois aparelhos.</p>
         <p class="note" id="s-sync"></p>
-        <div class="seg" id="s-dlist"></div>
+        
       </div>
       <div id="s-local" hidden>
         <div class="field"><label for="s-w">Brancas</label><select id="s-w"></select></div>
@@ -226,6 +228,7 @@ footer{max-width:1080px;margin:28px auto 0;font-size:.78rem;color:var(--muted);b
         </div></div>
     </div>
     <div class="card"><h2>Relógio</h2><div class="field"><label for="s-tc">Ritmo de jogo (minutos + segundos por lance)</label><select id="s-tc"><option value="0">Sem relógio</option><option value="5+3">5 + 3 (rápido)</option><option value="10+5">10 + 5</option><option value="15+10">15 + 10 (recomendado para aprender)</option><option value="30+0">30 + 0</option><option value="60+30">60 + 30 (clássico)</option></select></div><p class="note">Contra o Oponente e no mesmo aparelho. Quem esgota o tempo perde, exceto se o adversário não tiver material para dar mate (empate, FIDE 6.9). À distância não há relógio.</p></div>
+    <div class="card"><h2>Partidas à distância</h2><div class="seg" id="s-dlist"></div><p class="note">Um ponto vermelho em «Jogar» indica quantas partidas esperam o teu lance. Podes aprender ou jogar outra partida entretanto: as partidas à distância ficam guardadas até jogares.</p></div>
     <div><button class="btn pri" id="start">Começar partida</button></div>
   </section>
 
@@ -4182,7 +4185,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.10.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.11.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4346,6 +4349,7 @@ function show(v) {
   $('#nav-aprender').setAttribute('aria-current', v === 'aprender');
   if (v === 'aprender') renderPercurso();
   if (v === 'play') Mestre.montar($('#p-av'));
+  if (v === 'setup') setTimeout(atualizarPendentes, 0);
   $('#nav-jogar').setAttribute('aria-current', v === 'setup' || v === 'play');
   $('#nav-evolucao').setAttribute('aria-current', v === 'evolucao');
   $('#nav-regras').setAttribute('aria-current', v === 'regras');
@@ -4384,7 +4388,7 @@ function renderSetup() {
   so.onchange = () => { S.opp = so.value; save(); };
   renderSync();
   const dl = $('#s-dlist'); dl.innerHTML = '';
-  Object.values(store.get('corr', {})).filter(c => !c.done).forEach(c => { const n = new Chess(); try { n.loadPgn(c.pgn); } catch { return; } const b = el('button', 'btn', `Retomar: ${players[c.w]?.nome} vs ${players[c.b]?.nome} · ${n.history().length} meios-lances`); b.onclick = () => retomar(c, null); dl.append(b); });
+  renderPendentes(dl);
   ['s-w', 's-b'].forEach((id, i) => {
     const s = $('#' + id), side = i ? 'b' : 'w'; s.innerHTML = '';
     Object.entries(players).forEach(([k, p]) => { const o = el('option', null, p.nome); o.value = k; if (S.local[side] === k) o.selected = true; s.append(o); });
@@ -4786,7 +4790,7 @@ async function analisar() {
 /* ---------- à distância (correspondência por link) ---------- */
 const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = t => JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/')))));
-function saveCorr() { const m = store.get('corr', {}); m[S.dist.id] = { ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }; store.set('corr', m); }
+function saveCorr() { const m = store.get('corr', {}); m[S.dist.id] = { ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }; store.set('corr', m); setTimeout(atualizarPendentes, 50); }
 function enviar() {
   const d = { v: 1, id: S.dist.id, w: S.dist.w, b: S.dist.b, pgn: S.game.pgn(), by: S.color, offer: S.dist.offer || null, res: S.over ? S.dist.res : null, rtxt: S.over ? S.dist.rtxt : null, f: garantirFam().code };
   const url = BASE + '#j=' + enc(d), opp = players[S.dist[S.color === 'w' ? 'b' : 'w']]?.nome || 'adversário', last = S.hist[S.hist.length - 1];
@@ -4799,6 +4803,37 @@ function enviar() {
   acts.push(['Email', () => { location.href = 'mailto:?subject=' + encodeURIComponent('Tutor de Xadrez — partida ' + d.id) + '&body=' + encodeURIComponent(msg); }]);
   acts.push(['Copiar', copiar]);
   say('arbitro', S.over ? `Envia o resultado a <b>${opp}</b>:` : `Envia o link a <b>${opp}</b>. Ele abre na app dele, joga e devolve-te o link.`, acts);
+}
+function pendentes() { return Object.values(store.get('corr', {})).filter(c => !c.done).map(c => { const h = lances(c.pgn); if (!h) return null; return { c, n: h.length, vez: (h.length % 2 === 0 ? 'w' : 'b') === c.color }; }).filter(Boolean); }
+function renderPendentes(dl) {
+  const L = pendentes().sort((a, b) => b.vez - a.vez);
+  if (!L.length) { dl.innerHTML = '<p class="note">Sem partidas à distância a decorrer.</p>'; return; }
+  L.forEach(({ c, n, vez }) => { const opp = players[c[c.color === 'w' ? 'b' : 'w']]?.nome || 'adversário';
+    const b = el('button', 'btn pend' + (vez ? ' vez' : ''), `<b>${vez ? '● A tua vez' : '◌ À espera de ' + opp}</b><small>${players[c.w]?.nome} vs ${players[c.b]?.nome} · lance ${Math.floor(n / 2) + 1} · partida ${c.id}</small>`); b.onclick = () => abrirDist(c); dl.append(b); });
+}
+function atualizarPendentes() {
+  const n = pendentes().filter(x => x.vez).length, j = $('#nav-jogar');
+  if (j) j.innerHTML = 'Jogar' + (n ? ` <span class="badge" title="Partidas à distância à espera do teu lance">${n}</span>` : '');
+  document.title = (n ? `(${n}) ` : '') + 'Tutor de Xadrez';
+  try { if (navigator.setAppBadge) n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch { /* */ }
+  const dl = $('#s-dlist'); if (dl && !$('#v-setup').hidden) { dl.innerHTML = ''; renderPendentes(dl); }
+}
+let pausa = null;
+function abrirDist(c) {
+  if (S.game && !S.over && S.mode !== 'dist') { pausa = { mode: S.mode, game: S.game.pgn(), color: S.color, clk: S.clk ? { ...S.clk } : null, botElo: S.botElo, style: S.style, local: { ...S.local } }; store.set('pausa', pausa); }
+  retomar(c, null);
+  if (pausa) say('arbitro', 'A tua partida anterior ficou em pausa (relógio parado).', [['Voltar à partida em pausa', voltarPausa, true]]);
+}
+function voltarPausa() {
+  const p = pausa || store.get('pausa', null); if (!p) return;
+  const g = new Chess(); try { g.loadPgn(p.game); } catch { return; }
+  S.mode = p.mode; S.color = p.color; S.botElo = p.botElo; S.style = p.style; S.local = p.local; reset(g);
+  S.clk = p.clk ? { ...p.clk, last: performance.now(), pausa: false } : null; pausa = null; store.set('pausa', null);
+  show('play'); renderAll(); say('arbitro', 'Partida retomada. O relógio volta a contar.');
+  if (S.mode === 'bot' && S.game.turn() !== S.color) botTurn();
+}
+function notificar(t) {
+  try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') navigator.serviceWorker?.ready.then(r => r.showNotification('Tutor de Xadrez', { body: t, icon: 'icon-192.png', tag: 'tx-lance', renotify: true })).catch(() => new Notification('Tutor de Xadrez', { body: t })); } catch { /* */ }
 }
 function retomar(c, d) {
   const g = new Chess();
@@ -4862,6 +4897,7 @@ async function publicarPendentes() {
   }
 }
 async function sincronizar() {
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch { /* */ }
   garantirFam(); ligar(); saveCorr();
   const ok = await pub({ k: 'g', d: dadosCorr({ ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }) });
   const m = store.get('corr', {}); if (m[S.dist.id]) { m[S.dist.id].pend = !ok; store.set('corr', m); }
@@ -4872,12 +4908,14 @@ async function sincronizar() {
 }
 function recebe(o) {
   if (fam && !fam.paired) { fam.paired = true; store.set('fam', fam); renderSync(); }
+  setTimeout(atualizarPendentes, 50);
+  if (o.k === 'g' && o.d) notificar(`${players[o.d[o.d.by]]?.nome || 'O adversário'} jogou. É a tua vez.`);
   if (o.k !== 'g' || !o.d) return;
   const d = o.d, b = lances(d.pgn); if (!b) return;
   const m = store.get('corr', {}), local = m[d.id], quem = players[d[d.by]]?.nome || 'O adversário';
   if (!local) {
     m[d.id] = { id: d.id, w: d.w, b: d.b, pgn: d.pgn, color: d.by === 'w' ? 'b' : 'w', offer: d.offer, res: d.res, rtxt: d.rtxt, done: false }; store.set('corr', m);
-    aviso(`${quem} convidou-te para uma partida à distância.`, [['Abrir', () => retomar(store.get('corr', {})[d.id], null)]]); if (!$('#v-setup').hidden) renderSetup(); return;
+    aviso(`${quem} convidou-te para uma partida à distância.`, [['Abrir', () => abrirDist(store.get('corr', {})[d.id])]]); if (!$('#v-setup').hidden) renderSetup(); return;
   }
   const a = lances(local.pgn) || [];
   if (b.length < a.length) { if (!local.pend) pub({ k: 'g', d: dadosCorr(local) }); return; }
@@ -4886,7 +4924,7 @@ function recebe(o) {
   if (local.done) return;
   const aberta = S.mode === 'dist' && S.dist && S.dist.id === d.id && !$('#v-play').hidden;
   if (aberta) { retomarCom(local, d); aviso(b.length > a.length ? `${quem} jogou ${pt(b[b.length - 1])}.` : `${quem} enviou uma atualização.`); }
-  else { m[d.id] = { ...local, pgn: d.pgn, offer: d.offer, res: d.res, rtxt: d.rtxt }; store.set('corr', m); aviso(`${quem} jogou na partida ${d.id}. É a tua vez.`, [['Abrir', () => retomar(store.get('corr', {})[d.id], null)]]); if (!$('#v-setup').hidden) renderSetup(); }
+  else { m[d.id] = { ...local, pgn: d.pgn, offer: d.offer, res: d.res, rtxt: d.rtxt }; store.set('corr', m); aviso(`${quem} jogou na partida ${d.id}. É a tua vez.`, [['Abrir', () => abrirDist(store.get('corr', {})[d.id])]]); if (!$('#v-setup').hidden) renderSetup(); }
 }
 function aviso(t, acts) {
   const w = $('#toast'); w.innerHTML = `<span>${t}</span>`; (acts || []).forEach(([l, fn]) => { const b = el('button', 'btn pri', l); b.onclick = () => { w.hidden = true; fn(); }; w.append(b); });
@@ -5105,7 +5143,7 @@ $('#b-draw').onclick = async () => {
 $('#b-new').onclick = () => show('setup');
 
 /* ---------- arranque ---------- */
-aplicarTutor(); header(); renderSetup(); if (fam) ligar(); if (!abrirLink()) show('setup');
+aplicarTutor(); header(); renderSetup(); atualizarPendentes(); if (store.get('pausa', null)) pausa = store.get('pausa', null); if (fam) ligar(); if (!abrirLink()) show('setup');
 window.addEventListener('hashchange', () => { abrirLink(); });
 
 </script>
