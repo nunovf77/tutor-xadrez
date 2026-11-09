@@ -39,12 +39,14 @@ label{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(-
 .log{font-family:var(--f-m);font-size:.78rem;max-height:260px;overflow:auto;white-space:pre-wrap}
 .note{color:var(--muted);font-size:.85rem}
 :focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px;margin-top:10px}.ck{display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:.88rem;color:var(--ink)}.ck input{width:auto}
+details{margin-top:10px}summary{cursor:pointer}
 footer{max-width:1100px;margin:24px auto 0;font-size:.75rem;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
 </style>
 </head>
 <body>
 <header><svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#0F6E63"/><path d="M13 31h15l-1.5-4.5c2-3 2.5-7 .5-11-1.6-3.2-5-5-8.5-5l-1 2.5-3 1.5-3 5 2 2.2 4-1.7c.6 1.3-.4 3.5-2.2 5.3L13 31z" fill="#fff"/></svg>
-<div><h1>Consola do Pai</h1><span class="sub">Tutor de Xadrez · v0.13.0</span></div><span class="st" id="st">desligada</span></header>
+<div><h1>Consola do Pai</h1><span class="sub">Tutor de Xadrez · v0.14.0</span></div><span class="st" id="st">desligada</span></header>
 <main>
 <section class="card" id="cfg">
   <h2>Ligação à família</h2>
@@ -60,6 +62,7 @@ footer{max-width:1100px;margin:24px auto 0;font-size:.75rem;color:var(--muted);b
 <section class="card">
   <h2>Comandos para todos os aparelhos</h2>
   <div class="row"><div><label for="msg">Mensagem</label><input id="msg" maxlength="300" placeholder="Ex.: Hoje às 18:00 jogamos uma partida!"></div><div style="flex:0"><button class="btn" id="sendmsg">Enviar</button></div></div>
+  <details style="margin-top:12px"><summary><b>Permissões para todos os aparelhos</b></summary><div id="gperm"></div><div class="btns"><button class="btn pri" id="gapply">Aplicar a todos</button></div></details>
   <div class="btns"><button class="btn pri" id="reqall">Pedir relatório</button><button class="btn" id="exp">Exportar dados (JSON)</button></div>
 </section>
 <section class="card"><h2>Registo</h2><div class="log" id="log"></div></section>
@@ -76,7 +79,7 @@ const dt=s=>{if(!s)return'—';const d=new Date(s);return d.toLocaleDateString('
 const NOMES={nuno:'Nuno',ines:'Inês',conv:'Convidado'};
 async function hashPIN(pin){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('tx-pin:'+pin));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function L(t){log.unshift(dt(new Date().toISOString())+'  '+t);log=log.slice(0,200);ST.set('log',log);$('#log').textContent=log.join('\n')}
-async function pub(o){if(!cfg.code)return;try{await fetch(RELAY+'tutorxadrez-'+cfg.code,{method:'POST',body:JSON.stringify({...o,from:'consola',who:'pai'})});}catch{L('Falha a enviar (sem internet?)')}}
+async function pub(o){if(!cfg.code)return;if(o.k==='cmd'){o.cid=Date.now().toString(36)+Math.random().toString(36).slice(2,8);o.ts=new Date().toISOString()}try{await fetch(RELAY+'tutorxadrez-'+cfg.code,{method:'POST',body:JSON.stringify({...o,from:'consola',who:'pai'})});}catch{L('Falha a enviar (sem internet?)')}}
 function ligar(){
   if(es){es.close();es=null}
   if(!cfg.code)return;
@@ -91,10 +94,24 @@ function recebe(o){
   if(o.k==='g'&&o.d){const d=o.d;L(`Partida ${d.id}: ${NOMES[d[d.by]]||d[d.by]} jogou (${(d.pgn.match(/\d+\./g)||[]).length} lances)${d.res?' · resultado '+d.res:''}`);return}
   if(o.k==='h')L('Aparelho emparelhado: '+(NOMES[o.who]||o.who||'?'));
 }
-function cmd(op,to,text){if(['bloq','desbloq','reset-learn','reset-rating','tutor'].includes(op)&&!cfg.pinH)return alertar('Escreve o PIN do pai e carrega em «Ligar».');pub({k:'cmd',op,to,text,pinH:cfg.pinH});L(`Comando «${op}» enviado para ${to==='*'?'todos':String(to).slice(0,4).toUpperCase()}`);setTimeout(()=>pub({k:'req',to}),2500)}
+function cmd(op,to,text){if(['bloq','desbloq','reset-learn','reset-rating','tutor','dono','apagar','perm'].includes(op)&&!cfg.pinH)return alertar('Escreve o PIN do pai e carrega em «Ligar».');pub({k:'cmd',op,to,text,pinH:cfg.pinH});L(`Comando «${op}» enviado para ${to==='*'?'todos':String(to).slice(0,4).toUpperCase()}`);setTimeout(()=>pub({k:'req',to}),2500)}
 function alertar(t){L('⚠ '+t);const e=document.getElementById('err');if(e){e.textContent=t;setTimeout(()=>{e.textContent=''},8000)}}
 function confirmar(btn,fn){if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t;fn()}else{btn.dataset.t=btn.textContent;btn.dataset.c=1;btn.textContent='Confirmar?';setTimeout(()=>{if(btn.dataset.c){delete btn.dataset.c;btn.textContent=btn.dataset.t}},4000)}}
+const NOMEMODO={bot:'Contra o Oponente',local:'Mesmo aparelho',dist:'À distância'};
+function formPerm(p,id){p=p||{};const m=p.modos||{bot:1,local:1,dist:1};
+ return `<div class="pgrid" data-perm="${id}">
+ <div><label>Estado</label><select data-k="estado"><option value="ok"${p.estado==='ok'?' selected':''}>Autorizado</option><option value="pend"${p.estado==='pend'?' selected':''}>Pendente</option><option value="bloq"${p.estado==='bloq'?' selected':''}>Bloqueado (pausa)</option></select></div>
+ <div><label>Modos permitidos</label>${['bot','local','dist'].map(k=>`<label class="ck"><input type="checkbox" data-m="${k}"${m[k]?' checked':''}> ${NOMEMODO[k]}</label>`).join('')}</div>
+ <div><label>Ajuda do tutor (degraus máx.)</label><select data-k="ajuda">${[0,1,2,3,4,5,6].map(n=>`<option value="${n}"${(p.ajuda??6)==n?' selected':''}>${n===0?'Sem ajuda':n===6?'6 (até ao lance)':n}</option>`).join('')}</select></div>
+ <div><label>Outras permissões</label><label class="ck"><input type="checkbox" data-k="aprender"${p.aprender!==0?' checked':''}> «Aprender»</label><label class="ck"><input type="checkbox" data-k="undo"${p.undo!==0?' checked':''}> Desfazer / voltar atrás</label><label class="ck"><input type="checkbox" data-k="coment"${p.coment!==0?' checked':''}> Comentários do tutor</label><label class="ck"><input type="checkbox" data-k="tutorLivre"${p.tutorLivre!==0?' checked':''}> Escolher tutor</label></div>
+ <div><label>Minutos por dia (0 = sem limite)</label><input type="number" min="0" max="600" step="5" data-k="minDia" value="${p.minDia||0}"></div>
+ <div><label>Horário (ex.: 8-21; vazio = sempre)</label><input data-k="horas" value="${esc(p.horas||'')}" placeholder="8-21"></div>
+ <div><label class="ck"><input type="checkbox" data-k="novosPend"${p.novosPend?' checked':''}> Aparelhos novos ficam pendentes até eu autorizar</label></div>
+ </div>`}
+function lerPerm(box){const q={modos:{}};box.querySelectorAll('[data-k]').forEach(e=>{const k=e.dataset.k;q[k]=e.type==='checkbox'?(e.checked?1:0):e.type==='number'?(+e.value||0):e.value.trim()});box.querySelectorAll('[data-m]').forEach(e=>{q.modos[e.dataset.m]=e.checked?1:0});if(q.horas&&!/^\d{1,2}-\d{1,2}$/.test(q.horas)){alertar('Horário no formato 8-21.');return null}return q}
+let pendRender=false;
 function render(){
+  if(document.querySelector('#devs details[open]')){pendRender=true;return}
   const box=$('#devs'),L2=Object.values(devs).sort((a,b)=>(a.r?.nome||'').localeCompare(b.r?.nome||''));
   if(!L2.length)return;
   box.innerHTML=L2.map(d=>{const r=d.r||{},l=d.learn||{},pct=l.total?Math.round(l.licoes/l.total*100):0,dev=String(d.dev).slice(0,4).toUpperCase(),velho=(Date.now()-Date.parse(d.ts))>36e5*24;
@@ -105,11 +122,19 @@ function render(){
   ${(d.pend||[]).length?`<p>${d.pend.map(p=>`<span class="pill ${p.vez?'vez':'ok'}">${p.vez?'● deve lance':'◌ à espera'} · ${esc(p.id)}</span>`).join(' ')}</p>`:''}
   <div class="tw"><table><thead><tr><th>Data</th><th>Partida</th><th>Res.</th><th>Δ</th><th>Ajudas</th></tr></thead><tbody>${(d.games||[]).slice().reverse().map(g=>`<tr><td>${dt(g.d)}</td><td>${g.modo==='bot'?'vs '+esc(g.adv):g.modo==='dist'?'à distância vs '+esc(NOMES[g.adv]||g.adv):'mesmo aparelho vs '+esc(NOMES[g.adv]||g.adv)}</td><td>${esc(g.res)}</td><td>${g.delta==null?'—':(g.delta>0?'+':'')+g.delta}</td><td>${esc(g.ajudas)}</td></tr>`).join('')||'<tr><td colspan="5" class="note">Sem partidas.</td></tr>'}</tbody></table></div>
   ${(d.audit||[]).length?`<details><summary class="note">Auditoria (${d.audit.length})</summary><div class="log">${d.audit.slice().reverse().map(a=>esc(dt(a.d)+'  '+a.tipo)).join('\n')}</div></details>`:''}
-  <div class="btns"><button class="btn" data-a="req">Pedir relatório</button><button class="btn" data-a="${d.bloq?'desbloq':'bloq'}">${d.bloq?'Retomar app':'Pausar app'}</button>
+  <details><summary><b>Permissões e cedências</b> · hoje ${esc(d.uso?.min||0)} min${d.perm?.minDia?' / '+(d.perm.minDia+(d.uso?.ext||0)):''}</summary>${formPerm(d.perm,d.dev)}<div class="btns"><button class="btn pri" data-a="perm">Aplicar permissões</button><button class="btn" data-a="extra">+30 min hoje</button></div></details>
+  <div class="btns"><button class="btn" data-a="req">Pedir relatório</button><button class="btn" data-a="${d.bloq?'desbloq':'bloq'}">${d.bloq?'Autorizar / retomar':'Pausar app'}</button>
   <select data-a="tutor" aria-label="Tutor"><option value="">Tutor…</option><option value="dama">Dama Leonor</option><option value="bispo">Bispo Gaspar</option><option value="mestre">Mestre Gaspar</option></select>
-  <button class="btn dang" data-a="reset-learn">Repor «Aprender»</button><button class="btn dang" data-a="reset-rating">Repor rating</button></div></article>`}).join('');
+  <select data-a="dono" aria-label="Dono"><option value="">Dono…</option><option value="nuno">Nuno</option><option value="ines">Inês</option></select>
+  <button class="btn dang" data-a="reset-learn">Repor «Aprender»</button><button class="btn dang" data-a="reset-rating">Repor rating</button><button class="btn dang" data-a="apagar">Apagar dados do aparelho</button><button class="btn" data-a="esquecer">Retirar da lista</button></div></article>`}).join('');
+  box.querySelectorAll('details').forEach(dd=>dd.addEventListener('toggle',()=>{if(!dd.open&&pendRender){pendRender=false;setTimeout(render,50)}}));
   box.querySelectorAll('.dev').forEach(c=>{const dev=c.dataset.dev;c.querySelectorAll('[data-a]').forEach(b=>{const a=b.dataset.a;
     if(a==='tutor')b.onchange=()=>{if(b.value)cmd('tutor',dev,b.value)};
+    else if(a==='dono')b.onchange=()=>{if(b.value)cmd('dono',dev,b.value)};
+    else if(a==='perm')b.onclick=()=>{const q=lerPerm(c.querySelector('[data-perm]'));if(q){pub({k:'cmd',op:'perm',to:dev,perm:q,pinH:cfg.pinH});L('Permissões enviadas a '+dev.slice(0,4).toUpperCase());setTimeout(()=>pub({k:'req',to:dev}),2500)}};
+    else if(a==='extra')b.onclick=()=>{pub({k:'cmd',op:'perm',to:dev,perm:{extra:30},pinH:cfg.pinH});L('+30 min concedidos a '+dev.slice(0,4).toUpperCase())};
+    else if(a==='esquecer')b.onclick=()=>confirmar(b,()=>{delete devs[dev];ST.set('devs',devs);render()});
+    else if(a==='apagar')b.onclick=()=>confirmar(b,()=>cmd('apagar',dev));
     else if(a==='req')b.onclick=()=>{pub({k:'req',to:dev});L('Relatório pedido a '+dev.slice(0,4).toUpperCase())};
     else if(a.startsWith('reset'))b.onclick=()=>confirmar(b,()=>cmd(a,dev));
     else b.onclick=()=>cmd(a,dev)})});
@@ -117,6 +142,8 @@ function render(){
 {const h=location.hash.match(/#c=([0-9a-f]{16,40})/i);if(h){cfg.code=h[1].toLowerCase();ST.set('cfg',cfg);try{history.replaceState(null,'',location.pathname)}catch{}}}
 $('#code').value=cfg.code;
 $('#ligar').onclick=async()=>{let c=$('#code').value.trim();const m=c.match(/#f=([0-9a-f]+)/i);if(m)c=m[1];if(/script\.google|^https?:/i.test(c)&&!m)return alertar('Isso é um endereço da web, não o código da família. Na app do Tutor de Xadrez (aparelho do Nuno): Jogar → À distância → copia o código que aparece em «código da família», ou carrega em «Abrir Consola do Pai».');if(!/^[0-9a-f]{16,40}$/i.test(c))return alertar('Código inválido: são 24 letras/números (0–9, a–f).');cfg.code=c.toLowerCase();const p=$('#pin').value.trim();if(p){if(!/^\d{4,8}$/.test(p))return alertar('PIN com 4 a 8 algarismos.');cfg.pinH=await hashPIN(p)}ST.set('cfg',cfg);$('#pin').value='';L('Ligado ao código da família');ligar()};
+$('#gperm').innerHTML=formPerm(ST.get('gperm',{}),'*');
+$('#gapply').onclick=()=>{if(!cfg.pinH)return alertar('Escreve o PIN do pai e carrega em «Ligar».');const q=lerPerm($('#gperm [data-perm]'));if(!q)return;ST.set('gperm',q);pub({k:'cmd',op:'perm',to:'*',perm:q,pinH:cfg.pinH});L('Permissões enviadas a todos');setTimeout(()=>pub({k:'req',to:'*'}),2500)};
 $('#reqall').onclick=()=>{pub({k:'req',to:'*'});L('Relatório pedido a todos')};
 $('#sendmsg').onclick=()=>{const t=$('#msg').value.trim();if(!t)return;pub({k:'cmd',op:'msg',to:'*',text:t});L('Mensagem enviada: '+t);$('#msg').value=''};
 $('#exp').onclick=()=>{const blob=new Blob([JSON.stringify({devs,log},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tutor-xadrez-consola.json';a.click()};

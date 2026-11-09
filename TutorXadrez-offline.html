@@ -4189,7 +4189,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && R 
 
 
 
-const VERSAO = '0.13.1', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
+const VERSAO = '0.14.0', BASE = 'https://nunovf77.github.io/tutor-xadrez/', REF = 'TX-NF-2026-3FCA48';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -4226,6 +4226,10 @@ const REGRA = {
 /* ---------- estado ---------- */
 const JOGADORES0 = { nuno: { nome: 'Nuno', rating: 400, jogos: 0 }, ines: { nome: 'Inês', rating: 400, jogos: 0 }, conv: { nome: 'Convidado', rating: 400, jogos: 0 } };
 let players = Object.assign({}, JOGADORES0, store.get('players', {}));
+const PERM0 = { estado: 'ok', modos: { bot: 1, local: 1, dist: 1 }, aprender: 1, ajuda: 6, undo: 1, coment: 1, tutorLivre: 1, minDia: 0, horas: '', novosPend: 0 };
+let PERM = Object.assign({}, PERM0, store.get('perm', {}));
+function hojeISO() { return new Date().toISOString().slice(0, 10); }
+let USO = store.get('uso', { dia: hojeISO(), min: 0, ext: 0 }); if (USO.dia !== hojeISO()) USO = { dia: hojeISO(), min: 0, ext: 0 };
 let DONO = store.get('dono', null);   // { id: 'nuno'|'ines', pinH: hash do PIN do pai, desde: data }
 async function hashPIN(pin) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tx-pin:' + pin)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 const S = {
@@ -4367,7 +4371,7 @@ function aplicarTutor() {
   Mestre.tipo(S.tutor); escolherVoz();
 }
 function header() {
-  const ts = $('#tutor'); if (ts) { ts.value = S.tutor; ts.onchange = () => { S.tutor = ts.value; save(); aplicarTutor(); Mestre.humor('feliz', 'aceno'); const t = TUTORES[S.tutor]; speak(`Olá! Sou ${t.n === 'Dama Leonor' ? 'a' : 'o'} ${t.n}. Vamos aprender xadrez juntos.`); Mestre.fala('x'.repeat(50)); }; }
+  const ts = $('#tutor'); if (ts) { ts.disabled = !PERM.tutorLivre; ts.value = S.tutor; ts.onchange = () => { S.tutor = ts.value; save(); aplicarTutor(); Mestre.humor('feliz', 'aceno'); const t = TUTORES[S.tutor]; speak(`Olá! Sou ${t.n === 'Dama Leonor' ? 'a' : 'o'} ${t.n}. Vamos aprender xadrez juntos.`); Mestre.fala('x'.repeat(50)); }; }
   $('#ver').textContent = 'v' + VERSAO;
   const p = players[S.user];
   $('#who').innerHTML = `Utilizador: <b>${p.nome}</b> · ${escalao(p.rating)} ${Math.round(p.rating)}`;
@@ -4390,6 +4394,7 @@ function renderSetup() {
   seg('s-mode', S.mode, v => { S.mode = v; });
   seg('s-style', S.style, v => { S.style = v; });
   seg('s-color', S.colorPref, v => { S.colorPref = v; });
+  $$('#s-mode button').forEach(b => { b.hidden = !PERM.modos[b.dataset.v]; }); if (!PERM.modos[S.mode]) S.mode = ['bot', 'local', 'dist'].find(m => PERM.modos[m]) || 'bot';
   $('#s-bot').hidden = S.mode !== 'bot'; $('#s-local').hidden = S.mode !== 'local'; $('#s-dist').hidden = S.mode !== 'dist';
   seg('s-dcol', S.dcol, v => { S.dcol = v; });
   const so = $('#s-opp'); so.innerHTML = ''; if (S.opp === S.user) S.opp = Object.keys(players).find(k => k !== S.user);
@@ -4472,8 +4477,8 @@ function renderStatus() {
   $('#match').textContent = S.mode === 'bot' ? `${AG[S.style].n} ${S.botElo} · ${escalao(S.botElo)}` : S.mode === 'dist' ? `À distância · partida ${S.dist.id}` : 'Humano vs humano · Mestre bloqueado';
   const lock = S.mode !== 'bot' || S.over || S.game.turn() !== S.color || S.view != null;
   $('#ladder').classList.toggle('locked', S.mode !== 'bot');
-  $$('#ladder button').forEach(b => { b.disabled = S.mode === 'bot' && (lock || S.busy); b.classList.toggle('used', S.used.has(+b.dataset.l)); });
-  $('#b-undo').disabled = S.mode !== 'bot' || S.busy || S.over || S.hist.length < 2;
+  $$('#ladder button').forEach(b => { b.hidden = +b.dataset.l > PERM.ajuda; b.disabled = S.mode === 'bot' && (lock || S.busy); b.classList.toggle('used', S.used.has(+b.dataset.l)); });
+  $('#b-undo').hidden = !PERM.undo; $('#b-undo').disabled = !PERM.undo || S.mode !== 'bot' || S.busy || S.over || S.hist.length < 2;
   $('#b-resign').disabled = S.over; $('#b-draw').disabled = S.over || S.busy;
 }
 function renderAll() { renderBoard(); renderMoves(); renderStatus(); renderRelogio(); }
@@ -4613,12 +4618,13 @@ function play(m) {
   }
 }
 async function comentar(prev, cur, r) {
-  if (!S.coment || !eng.ok) return null;
+  if (!S.coment || !PERM.coment || !eng.ok) return null;
   try {
     const a = await eng.analyse(prev, { depth: 10, multipv: 1 }); if (!a.lines[0]) return null;
     const c = new Chess(cur); let depois;
     if (c.isCheckmate()) depois = 100000; else if (c.isGameOver()) depois = 0; else { const b = await eng.analyse(cur, { depth: 9, multipv: 1 }); depois = b.lines[0] ? -val(b.lines[0]) : 0; }
     const perda = Math.max(0, clamp(val(a.lines[0])) - clamp(depois)), melhor = a.lines[0].move === r.from + r.to + (r.promotion || '');
+    if (perda >= 250 && !PERM.undo) { Mestre.humor('preocupado', 'abana'); say('mestre', `Hmm… ${sanH(r.san)} deixa-te em dificuldades. No fim, a Lupa mostra-te porquê.`); return null; }
     if (perda >= 250) { Mestre.humor('preocupado', 'abana'); if (S.clk) { relogioTick(); S.clk.pausa = true; } return await new Promise(res => say('mestre', `Hmm… ${sanH(r.san)} deixa-te em dificuldades: perdes material ou a vantagem. Um mestre pararia para pensar. Queres voltar atrás? (conta como ajuda)`, [['Voltar atrás', () => res('undo'), true], ['Continuar assim', () => res(null)]])); }
     if (perda >= 90) { Mestre.humor('pensa'); say('mestre', `${sanH(r.san)} é jogável, mas havia melhor. No fim, a Lupa mostra-te o quê.`); return null; }
     if (melhor && Math.random() < .5) { Mestre.humor('feliz', 'aceno'); say('mestre', ['Excelente lance!', 'Isso mesmo: é o que eu jogaria.', 'Muito bem visto.'][Math.floor(Math.random() * 3)]); }
@@ -4802,7 +4808,7 @@ const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/
 const dec = t => JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/')))));
 function saveCorr() { const m = store.get('corr', {}); m[S.dist.id] = { ...S.dist, pgn: S.game.pgn(), color: S.color, done: S.over }; store.set('corr', m); setTimeout(atualizarPendentes, 50); }
 function enviar() {
-  const d = { v: 1, id: S.dist.id, w: S.dist.w, b: S.dist.b, pgn: S.game.pgn(), by: S.color, offer: S.dist.offer || null, res: S.over ? S.dist.res : null, rtxt: S.over ? S.dist.rtxt : null, f: garantirFam().code };
+  const d = { v: 1, id: S.dist.id, w: S.dist.w, b: S.dist.b, pgn: S.game.pgn(), by: S.color, offer: S.dist.offer || null, res: S.over ? S.dist.res : null, rtxt: S.over ? S.dist.rtxt : null, f: garantirFam().code, p: PERM.novosPend ? 1 : 0 };
   const url = BASE + '#j=' + enc(d), opp = players[S.dist[S.color === 'w' ? 'b' : 'w']]?.nome || 'adversário', last = S.hist[S.hist.length - 1];
   const msg = `♟ Tutor de Xadrez (partida ${d.id}): ${S.over ? 'partida terminada — ' + S.dist.rtxt : (last && last.color === S.color ? players[S.user].nome + ' jogou ' + pt(last.san) + '. ' : '') + (d.offer ? 'Proponho empate. ' : '') + 'É a tua vez.'} Abre: ${url}`;
   const copiar = () => { const f = () => say('arbitro', `Copia este link: <span class="san" style="word-break:break-all">${url}</span>`); try { navigator.clipboard.writeText(msg).then(() => say('arbitro', 'Mensagem com o link copiada. Cola-a no WhatsApp, SMS ou email.'), f); } catch { f(); } };
@@ -4865,10 +4871,10 @@ function retomar(c, d) {
 }
 function abrirLink() {
   const h = location.hash;
-  if (h.startsWith('#f=')) { try { history.replaceState(null, '', location.pathname); } catch { /* */ } fam = { code: h.slice(3), paired: true }; store.set('fam', fam); ligar(); pub({ k: 'h' }); aviso('Aparelho emparelhado: os lances passam a chegar sozinhos.'); return false; }
+  if (h.startsWith('#f=')) { try { history.replaceState(null, '', location.pathname); } catch { /* */ } fam = { code: h.slice(3).split('&')[0], paired: true }; store.set('fam', fam); if (/&p=1/.test(h) && !store.get('perm', null)) { PERM.estado = 'pend'; store.set('perm', PERM); bloqueio(); } ligar(); pub({ k: 'h' }); aviso('Aparelho emparelhado: os lances passam a chegar sozinhos.'); return false; }
   if (!h.startsWith('#j=')) return false;
   try { history.replaceState(null, '', location.pathname); } catch { /* */ }
-  let d; try { d = dec(h.slice(3)); if (d.f && !(fam && fam.paired)) { fam = { code: d.f, paired: true }; store.set('fam', fam); ligar(); pub({ k: 'h' }); } } catch { show('play'); say('arbitro', 'Este link está estragado ou incompleto. Pede ao adversário que o envie outra vez.'); return true; }
+  let d; try { d = dec(h.slice(3)); if (d.f && !(fam && fam.paired)) { fam = { code: d.f, paired: true }; store.set('fam', fam); if (d.p && !store.get('perm', null)) { PERM.estado = 'pend'; store.set('perm', PERM); setTimeout(bloqueio, 500); } ligar(); pub({ k: 'h' }); } } catch { show('play'); say('arbitro', 'Este link está estragado ou incompleto. Pede ao adversário que o envie outra vez.'); return true; }
   const local = store.get('corr', {})[d.id];
   if (local) {
     const a = new Chess(), b = new Chess();
@@ -4956,7 +4962,7 @@ function renderSync() {
   const est = !fam ? 'por ativar (ativa-se na primeira partida)' : !navigator.onLine ? 'sem internet (usa o link)' : fam.paired ? 'ligada ✓' : 'à espera do outro aparelho';
   e.innerHTML = `<b>Sincronização automática:</b> ${est}${fam ? ` · código da família: <code>${fam.code}</code>${DONO && DONO.id === 'nuno' ? ` · <a href="consola.html#c=${fam.code}" target="_blank" rel="noopener">Abrir Consola do Pai ↗</a>` : ''}` : ''}`;
   const b = el('button', 'btn', 'Emparelhar outro aparelho'); b.onclick = () => {
-    garantirFam(); ligar(); const url = BASE + '#f=' + fam.code, msg = '♟ Tutor de Xadrez: abre este link no teu aparelho para os lances chegarem sozinhos: ' + url;
+    garantirFam(); ligar(); const url = BASE + '#f=' + fam.code + (PERM.novosPend ? '&p=1' : ''), msg = '♟ Tutor de Xadrez: abre este link no teu aparelho para os lances chegarem sozinhos: ' + url;
     show('play'); say('arbitro', 'Envia este link uma vez ao outro aparelho.', [navigator.share ? ['Partilhar', () => navigator.share({ title: 'Tutor de Xadrez', text: msg }).catch(() => {}), true] : ['WhatsApp', () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank'), true], ['Email', () => { location.href = 'mailto:?subject=Tutor%20de%20Xadrez&body=' + encodeURIComponent(msg); }], ['Copiar', () => { try { navigator.clipboard.writeText(msg).then(() => aviso('Link copiado.')); } catch { /* */ } }]]);
   };
   e.append(' ', b);
@@ -4969,26 +4975,44 @@ window.__txUpdate = () => { const ocupado = (S.game && !S.over && !$('#v-play').
 function relatorio() {
   if (!fam || !DONO) return;
   const eu = DONO.id, p = players[eu], lp = (store.get('learn', {})[eu]) || { l: {}, xp: 0 };
-  const g = store.get('games', []).filter(x => x.jogador === eu || x.brancas === eu || x.pretas === eu).slice(-8).map(x => ({ d: x.d, modo: x.modo, res: x.res, adv: x.adv || (x.brancas === eu ? x.pretas : x.brancas), delta: x.delta ?? null, ajudas: x.ajudas }));
-  pub({ k: 'st', dev: DEV, ver: VERSAO, tutor: S.tutor, bloq: !!store.get('bloq', false), r: { nome: p.nome, rating: Math.round(p.rating), escalao: escalao(p.rating), jogos: p.jogos },
+  const g = store.get('games', []).filter(x => x.jogador === eu || x.brancas === eu || x.pretas === eu).slice(-8).map(x => ({ d: x.d, modo: x.modo, res: x.res, adv: x.adv || (x.brancas === eu ? x.pretas : x.brancas), delta: x.delta ?? null, ajudas: x.ajudas, pgn: x.pgn }));
+  pub({ k: 'st', dev: DEV, ver: VERSAO, tutor: S.tutor, bloq: PERM.estado !== 'ok', perm: PERM, uso: USO, dono: DONO ? DONO.id : null, r: { nome: p.nome, rating: Math.round(p.rating), escalao: escalao(p.rating), jogos: p.jogos },
     learn: { licoes: Object.values(lp.l).filter(x => x.ok).length, total: LICOES.length, xp: lp.xp, seq: streakAtual(lp) }, games: g,
     pend: pendentes().map(x => ({ id: x.c.id, vez: x.vez, n: x.n })), audit: store.get('audit', []).slice(-8), ts: new Date().toISOString() });
 }
 function comando(o) {
   if (!DONO) return;
+  if (o.cid) { const fe = store.get('cmds', []); if (fe.includes(o.cid)) return; fe.push(o.cid); store.set('cmds', fe.slice(-300)); }
+  if (o.ts && Date.now() - Date.parse(o.ts) > 12 * 36e5) return;
   if (o.op === 'msg') { aviso('Mensagem do pai: ' + String(o.text || '').slice(0, 300)); return; }
   if (o.pinH !== DONO.pinH) { auditar('comando-recusado:' + o.op); return; }
-  if (o.op === 'bloq') { store.set('bloq', true); bloqueio(); }
-  if (o.op === 'desbloq') { store.set('bloq', false); bloqueio(); }
+  if (o.op === 'bloq') { PERM.estado = 'bloq'; }
+  if (o.op === 'desbloq') { PERM.estado = 'ok'; }
+  if (o.op === 'perm' && o.perm && typeof o.perm === 'object') { const q = o.perm; ['estado', 'ajuda', 'undo', 'coment', 'aprender', 'tutorLivre', 'minDia', 'horas', 'novosPend'].forEach(k => { if (k in q) PERM[k] = ['ajuda', 'undo', 'coment', 'aprender', 'tutorLivre', 'minDia', 'novosPend'].includes(k) ? +q[k] || 0 : q[k]; }); if (q.modos) PERM.modos = Object.assign({}, PERM.modos, q.modos); if (q.extra) { USO.ext = (USO.ext || 0) + (+q.extra || 0); store.set('uso', USO); } }
+  if (o.op === 'dono' && JOGADORES0[o.text]) { DONO = { ...DONO, id: o.text, desde: new Date().toISOString() }; store.set('dono', DONO); S.user = o.text; save(); header(); renderSetup(); aviso(`O pai definiu este aparelho como de ${players[o.text].nome}.`); }
+  if (o.op === 'apagar') { const keep = ['dev', 'fam', 'dono']; try { Object.keys(localStorage).filter(k => k.startsWith('tx.') && !keep.includes(k.slice(3))).forEach(k => localStorage.removeItem(k)); } catch { /* */ } auditar('dados-apagados'); relatorio(); setTimeout(() => location.reload(), 1500); return; }
+  store.set('perm', PERM); bloqueio(); if (!$('#v-setup').hidden) renderSetup(); if (S.game) renderStatus();
   if (o.op === 'reset-learn') { const a = store.get('learn', {}); delete a[DONO.id]; store.set('learn', a); if (!$('#v-aprender').hidden) renderPercurso(); aviso('O progresso de «Aprender» foi reposto pelo pai.'); }
   if (o.op === 'reset-rating') { players[DONO.id].rating = 400; players[DONO.id].jogos = 0; save(); header(); aviso('O rating foi reposto pelo pai.'); }
   if (o.op === 'tutor' && TUTORES[o.text]) { S.tutor = o.text; save(); aplicarTutor(); header(); }
   auditar('comando:' + o.op); relatorio();
 }
-function bloqueio() {
-  const b = !!store.get('bloq', false), w = $('#bloq');
-  w.hidden = !b; if (b) w.innerHTML = '<div class="card dono"><h2>App em pausa</h2><p>O pai pausou o Tutor de Xadrez neste aparelho. Volta mais tarde.</p></div>';
+function motivoBloqueio() {
+  if (PERM.estado === 'bloq') return ['App em pausa', 'O pai pausou o Tutor de Xadrez neste aparelho.'];
+  if (PERM.estado === 'pend') return ['À espera de autorização', `Este aparelho (${DEVC}) ainda não foi autorizado. Pede ao pai para o autorizar na Consola do Pai.`];
+  if (PERM.horas && /^\d{1,2}-\d{1,2}$/.test(PERM.horas)) { const [a, b] = PERM.horas.split('-').map(Number), h = new Date().getHours(); if (h < a || h >= b) return ['Fora do horário', `O Tutor de Xadrez está disponível das ${a}:00 às ${b}:00.`]; }
+  if (PERM.minDia > 0 && USO.min >= PERM.minDia + (USO.ext || 0)) return ['Tempo de hoje esgotado', `Já usaste ${USO.min} minutos hoje (limite ${PERM.minDia + (USO.ext || 0)}). Amanhã há mais!`];
+  return null;
 }
+function bloqueio() {
+  const m = motivoBloqueio(), w = $('#bloq'); w.hidden = !m; if (!m) return;
+  if (S.clk) { relogioTick(); S.clk.pausa = true; }
+  w.innerHTML = `<div class="card dono"><h2>${m[0]}</h2><p>${m[1]}</p><div class="field"><label for="bq-pin">PIN do pai (desbloquear agora)</label><input id="bq-pin" type="password" inputmode="numeric" maxlength="8"></div><p class="note" id="bq-err"></p><button class="btn pri" id="bq-ok">Desbloquear</button></div>`;
+  $('#bq-ok').onclick = async () => { const h = await hashPIN($('#bq-pin').value.trim()); if (!DONO || h !== DONO.pinH) { auditar('pin-errado-bloqueio'); $('#bq-err').textContent = 'PIN errado.'; return; }
+    if (PERM.estado !== 'ok') PERM.estado = 'ok'; else if (PERM.minDia > 0) USO.ext = (USO.ext || 0) + 30; else PERM.horas = '';
+    store.set('perm', PERM); store.set('uso', USO); auditar('desbloqueio-local:' + m[0]); bloqueio(); relatorio(); };
+}
+setInterval(() => { if (document.visibilityState !== 'visible') return; const d = hojeISO(); if (USO.dia !== d) USO = { dia: d, min: 0, ext: 0 }; if (!motivoBloqueio()) USO.min++; store.set('uso', USO); bloqueio(); }, 60000);
 setInterval(() => { if (navigator.onLine && document.visibilityState === 'visible') relatorio(); }, 15 * 60000);
 
 /* ---------- dono do aparelho ---------- */
@@ -5174,7 +5198,7 @@ function fimLicao() {
 $('#nav-jogar').onclick = () => show(S.game && !S.over ? 'play' : 'setup');
 $('#nav-evolucao').onclick = () => show('evolucao');
 $('#nav-regras').onclick = () => show('regras');
-$('#nav-aprender').onclick = () => show('aprender');
+$('#nav-aprender').onclick = () => { if (!PERM.aprender) return aviso('O pai desativou «Aprender» neste aparelho.'); show('aprender'); };
 $('#voz').onclick = () => { S.voz = !S.voz; if (!S.voz) try { speechSynthesis.cancel(); if (audioAtual) audioAtual.pause(); } catch { /* */ } save(); header(); };
 $('#start').onclick = newGame;
 $$('#ladder button').forEach(b => { b.onclick = () => mestre(+b.dataset.l); });
